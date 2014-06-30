@@ -187,6 +187,8 @@ dependencies {
   autojarred "org.apache.opennlp:opennlp-uima:$openNlpVersion"
   autojarred "org.apache.opennlp:opennlp-maxent:$openNlpMaxEntVersion"
 
+  autojarred "com.esri.geometry:esri-geometry-api:$esriGeoApiVersion"
+
   // needed to run jarjar
   jarjar "com.googlecode.jarjar:jarjar:1.3"
 
@@ -214,21 +216,21 @@ compileTestJava.doFirst {
 
 // open NLP models used for testing.  these are not shipped with datafu.
 task downloadOpenNlpModels << {
-  download {
-    src 'http://opennlp.sourceforge.net/models-1.5/en-pos-maxent.bin'
-    dest file('data/en-pos-maxent.bin')
-    onlyIfNewer true
-  }
-  download {
-    src 'http://opennlp.sourceforge.net/models-1.5/en-sent.bin'
-    dest file('data/en-sent.bin')
-    onlyIfNewer true
-  }
-  download {
-    src 'http://opennlp.sourceforge.net/models-1.5/en-token.bin'
-    dest file('data/en-token.bin')
-    onlyIfNewer true
-  }
+  // download {
+  //   src 'http://opennlp.sourceforge.net/models-1.5/en-pos-maxent.bin'
+  //   dest file('data/en-pos-maxent.bin')
+  //   onlyIfNewer true
+  // }
+  // download {
+  //   src 'http://opennlp.sourceforge.net/models-1.5/en-sent.bin'
+  //   dest file('data/en-sent.bin')
+  //   onlyIfNewer true
+  // }
+  // download {
+  //   src 'http://opennlp.sourceforge.net/models-1.5/en-token.bin'
+  //   dest file('data/en-token.bin')
+  //   onlyIfNewer true
+  // }
 }
 
 // download models so can test in eclipse or testng
