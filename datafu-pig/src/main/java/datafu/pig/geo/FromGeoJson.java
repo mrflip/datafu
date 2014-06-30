@@ -35,21 +35,18 @@ import java.util.logging.Logger;
 
 public class FromGeoJson extends SimpleEvalFunc<String>
 {
-  private static final Logger LOG = Logger.getLogger(FromGeoJson.class.getName());
 
   public String call(String geo_json) throws JSONException {
     try {
-      LOG.log(Level.SEVERE, geo_json);
 
       OGCGeometry ogcObj   = OGCGeometry.fromGeoJson(geo_json);
-
-      Geometry    esriGeom = ogcObj.getEsriGeometry();
-      String res = ogcObj.asGeoJson();
-      LOG.log(Level.INFO, res);
-      return res;
+      
+      String   res      = ogcObj.asGeoJson();
+      log.debug(res);
+      return   res;
     }
     catch (Exception err) {
-      LOG.log(Level.SEVERE, err.getMessage());
+      log.error(err.getMessage());
       throw new RuntimeException("Can't parse input: " + err.getMessage() + " /// " + geo_json, err);
     }
   }
