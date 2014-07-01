@@ -30,9 +30,6 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 
 import org.json.JSONException;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 public class FromGeoJson extends SimpleEvalFunc<String>
 {
 

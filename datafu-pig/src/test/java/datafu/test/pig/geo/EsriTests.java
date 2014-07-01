@@ -120,7 +120,6 @@ public class EsriTests extends PigTests
   @Test
   public void fromGeoJsonTest() throws Exception
   {
-
     datafu.pig.geo.FromGeoJson fgj = new datafu.pig.geo.FromGeoJson();
 
     for (int ii=0; ii < PARK_PTS.length; ii++) {
