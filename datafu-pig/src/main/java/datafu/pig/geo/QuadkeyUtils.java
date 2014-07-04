@@ -344,7 +344,7 @@ public final class QuadkeyUtils {
    * all tiles that cover any part of the bounding box that covers the circle.
    * And for large areas, this may return tiles that do not actually intersect
    * the circle (especially for far-northerly points).
-   * 
+   *
    * However, when using this to partition big data sets, In our experience it's
    * rarely worth filtering out the bits in the corner (consider that a circle
    * occupies 79% of its bounding square), and even less worth fine-graining the
@@ -402,7 +402,7 @@ public final class QuadkeyUtils {
     System.err.println(String.format("%10.5f %10.5f %2d %4d | %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f | %5d < %5d > %5d | %5d < %5d > %5d",
         lng, lat, zl, tiles.size(),
         west, south, east, north, west_2, east_2,
-        txy_min[0], txy_pt[0], txy_max[0], 
+        txy_min[0], txy_pt[0], txy_max[0],
         txy_min[1], txy_pt[1], txy_max[1]));
     //
     return tiles;

@@ -82,6 +82,81 @@ public class EsriTests extends PigTests
       "(POLYGON ((-126 29.5, -107.7 29.5, -107.7 50, -126 50, -126 29.5)))");
   }
 
+  /**
+  DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
+  DEFINE GeoIntersection datafu.pig.geo.GeoIntersection();
+  data_in = LOAD 'input' as (geo_json:chararray);
+  data_out = FOREACH data_in {
+    feature = FromGeoJson(geo_json);
+    test_pt     = 'POINT (-100 27)';
+    test_line   = 'LINESTRING (-100 20, -140 29)';
+    test_poly   = 'POLYGON ((-100 20, -90 30, -70 40, -70 20, -100 20))';
+    test_pts     = 'MULTIPOINT ((-100 27),(-126 29.5),(-120 29.5))';
+    GENERATE
+      GeoIntersection(feature, test_pt)   AS feat_and_pt,
+      GeoIntersection(feature, test_line) AS feat_and_line,
+      GeoIntersection(feature, test_poly) AS feat_and_poly,
+      GeoIntersection(feature, test_poly) AS feat_and_pts;
+  };
+  STORE data_out INTO 'output';
+   */
+  @Multiline
+  private String geoIntersectionTest;
+
+  @Test
+  public void geoIntersectionTest() throws Exception
+  {
+    PigTest test = createPigTestFromString(geoIntersectionTest);
+    this.writeLinesToFile("input", PARK_CELLS);
+    test.runScript();
+    assertOutput(test, "data_out",
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-80.6 24, -70 24, -70 30.516788321167876, -74.10489731437599 37.947551342812005, -83.85290322580644 33.07354838709678, -84.3 31.2, -80.6 24)),POLYGON ((-80.6 24, -70 24, -70 30.516788321167876, -74.10489731437599 37.947551342812005, -83.85290322580644 33.07354838709678, -84.3 31.2, -80.6 24)))",
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-70 36.88738738738739, -70 40, -71.32629558541267 39.33685220729367, -70 36.88738738738739)),POLYGON ((-70 36.88738738738739, -70 40, -71.32629558541267 39.33685220729367, -70 36.88738738738739)))",
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-84.3 31.2, -83.85290322580644 33.07354838709677, -85.75780219780219 32.1210989010989, -84.3 31.2)),POLYGON ((-84.3 31.2, -83.85290322580644 33.07354838709677, -85.75780219780219 32.1210989010989, -84.3 31.2)))",
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-70 30.516788321167876, -70 36.88738738738739, -71.32629558541267 39.33685220729367, -74.10489731437599 37.947551342812005, -70 30.516788321167876)),POLYGON ((-70 30.516788321167876, -70 36.88738738738739, -71.32629558541267 39.33685220729367, -74.10489731437599 37.947551342812005, -70 30.516788321167876)))",
+      "(POINT (-100 27),MULTIPOLYGON EMPTY,POLYGON ((-96.00000000000001 24, -80.6 24, -84.3 31.2, -85.75780219780219 32.121098901098904, -90 30, -96.00000000000001 24)),POLYGON ((-96.00000000000001 24, -80.6 24, -84.3 31.2, -85.75780219780219 32.121098901098904, -90 30, -96.00000000000001 24)))",
+      "(MULTIPOLYGON EMPTY,LINESTRING (-117.77777777777777 24, -126 25.849999999999998),MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY)",
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY)");
+  }
+
+  /**
+  DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
+  DEFINE GeoArea datafu.pig.geo.GeoArea();
+  data_in = LOAD 'input' as (geo_json:chararray);
+  data_out = FOREACH data_in {
+    feature = FromGeoJson(geo_json);
+    GENERATE GeoArea(feature);
+  };
+  STORE data_out INTO 'output';
+   */
+  @Multiline
+  private String geoAreaTest;
+
+  @Test
+  public void geoAreaTest() throws Exception
+  {
+    PigTest test = createPigTestFromString(geoAreaTest);
+    this.writeLinesToFile("input", FEATURES_AS_GEOJSON);
+    test.runScript();
+    assertOutput(test, "data_out",
+      "(0.0)",
+      "(0.0)",
+      "(50.0)",
+      "(0.0)",
+      "(0.0)",
+      "(1.0)");
+    this.writeLinesToFile("input", PARK_CELLS);
+    test.runScript();
+    assertOutput(test, "data_out",
+      "(223.75999999999988)",
+      "(113.77499999999995)",
+      "(297.1850000000001)",
+      "(82.88500000000009)",
+      "(324.47999999999996)",
+      "(330.34)",
+      "(187.57499999999996)");
+  }
+
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   // /**
@@ -92,20 +167,20 @@ public class EsriTests extends PigTests
   //  */
   // @Multiline
   // private String fromGeoJsonTest;
-  // 
+  //
   // @Test
   // public void fromGeoJsonTest() throws Exception
   // {
   //   PigTest test = createPigTestFromString(fromGeoJsonTest);
-  // 
+  //
   //   this.writeLinesToFile("input", FEATURES_AS_GEOJSON);
   //   test.runScript();
   //   assertOutput(test, "data_out", EXAMPLE_FEATURES_OUT);
-  // 
+  //
   //   this.writeLinesToFile("input", PARK_CELLS);
   //   test.runScript();
   //   assertOutput(test, "data_out", PARK_CELLS_OUT);
-  // 
+  //
   //   datafu.pig.geo.FromGeoJson fgj = new datafu.pig.geo.FromGeoJson();
   //   //
   //   for (int ii=0; ii < PARK_PTS_GEOJSON.length; ii++) {
@@ -120,9 +195,9 @@ public class EsriTests extends PigTests
   //     String res = fgj.call(FEATURES_AS_GEOJSON[ii]);
   //     Assert.assertEquals(EXAMPLE_FEATURES_OUT[ii], "("+res+")");
   //   }
-  // 
+  //
   // }
-  // 
+  //
   // /**
   // DEFINE FromWellKnownText datafu.pig.geo.FromWellKnownText();
   // data_in = LOAD 'input' as (val:chararray, wkid:int);
@@ -131,7 +206,7 @@ public class EsriTests extends PigTests
   //  */
   // @Multiline
   // private String fromWellKnownTextTest;
-  // 
+  //
   // @Test
   // public void fromWellKnownTextTest() throws Exception
   // {
@@ -141,7 +216,7 @@ public class EsriTests extends PigTests
   //   test.runScript();
   //   assertOutput(test, "data_out", EXAMPLE_FEATURES_OUT);
   // }
-  // 
+  //
   // /**
   // DEFINE ToGeoJson datafu.pig.geo.ToGeoJson();
   // data_in = LOAD 'input' as (val:chararray);
@@ -150,12 +225,12 @@ public class EsriTests extends PigTests
   //  */
   // @Multiline
   // private String toGeoJsonTest;
-  // 
+  //
   // @Test
   // public void toGeoJsonTest() throws Exception
   // {
   //   PigTest test = createPigTestFromString(toGeoJsonTest);
-  // 
+  //
   //   this.writeLinesToFile("input", EXAMPLE_FEATURES);
   //   test.runScript();
   //   assertOutput(test, "data_out",

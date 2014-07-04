@@ -43,7 +43,7 @@ public class GeometryUtils {
   }
 
   // OGCGeometry.createFromEsriGeometry(env, null))
-  
+
   public static String pigPayload(Geometry esGeom) {
     try {
       int wkt_flags = getWktExportFlag(esGeom);
@@ -54,14 +54,14 @@ public class GeometryUtils {
       throw new RuntimeException(msg, err);
     }
   }
-  
-  
+
+
   private static int getWktExportFlag(Geometry esGeom){
     Geometry.Type type = esGeom.getType();
     int           dim  = esGeom.getDimension();
-  
+
     dump("%-10s %3d | %s", type, dim, esGeom);
-    
+
     switch (type){
     case Polygon:
       // return WktExportFlags.wktExportPolygon; // fails with polygons masquerading as multipolygons
@@ -94,7 +94,7 @@ public class GeometryUtils {
 
 
   /**
-   * Some of the geometry-api methods raise errors without strings. 
+   * Some of the geometry-api methods raise errors without strings.
    * This lets us track them down.
    */
   public static void fuckYouError(String msg, Throwable err) {
@@ -102,9 +102,9 @@ public class GeometryUtils {
     for ( StackTraceElement etr: err.getStackTrace() ) {
       System.err.println(etr);
     }
-  }  
+  }
 
-  
+
   public static void dump(String fmt, Object... args) {
     System.err.println("*******");
     System.err.println(String.format(fmt, args));

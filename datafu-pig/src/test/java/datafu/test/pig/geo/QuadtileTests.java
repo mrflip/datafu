@@ -50,7 +50,7 @@ public class QuadtileTests extends PigTests
 
   private final static double[] AUSQUAD_W_S_E_N  = {
     -97.7618408203125, 30.273300428069934, -97.75634765625, 30.278044377800153 };
-  
+
   @Test
   public void quadkeyConversionTest() throws Exception
   {
@@ -59,19 +59,19 @@ public class QuadtileTests extends PigTests
       int[]    tile_xy = QuadkeyUtils.quadkeyToTileXY(qk);
       String   quadstr = QuadkeyUtils.quadkeyToQuadstr(qk, zl);
       double[] lnglat  = QuadkeyUtils.quadkeyToMercator(qk, zl);
-        
+
       Assert.assertEquals(qk,     QuadkeyUtils.tileXYToQuadkey(tile_xy[0], tile_xy[1]));
       Assert.assertEquals(qk,     QuadkeyUtils.quadstrToQuadkey(quadstr));
       Assert.assertEquals(qk,     QuadkeyUtils.mercatorToQuadkey(lnglat[0], lnglat[1], zl));
       assertTileXYEquals(tile_xy, QuadkeyUtils.mercatorToTileXY(lnglat[0], lnglat[1], zl));
       assertLnglatsWithin(lnglat, QuadkeyUtils.tileXYToMercator(tile_xy[0], tile_xy[1], zl), 1e-9);
     }
-  
+
     Assert.assertEquals(AUSTIN_QUADKEY >> 26, QuadkeyUtils.tileXYToQuadkey(AUSTIN_TILEXY_3[0],  AUSTIN_TILEXY_3[1]));
     Assert.assertEquals(AUSTIN_QUADKEY >> 16, QuadkeyUtils.tileXYToQuadkey(AUSTIN_TILEXY_8[0],  AUSTIN_TILEXY_8[1]));
     Assert.assertEquals(AUSTIN_QUADKEY >> 10, QuadkeyUtils.tileXYToQuadkey(AUSTIN_TILEXY_11[0], AUSTIN_TILEXY_11[1]));
     Assert.assertEquals(AUSTIN_QUADKEY,       QuadkeyUtils.tileXYToQuadkey(AUSTIN_TILEXY_16[0], AUSTIN_TILEXY_16[1]));
-  
+
     assertTileXYEquals(AUSTIN_TILEXY_3,       QuadkeyUtils.mercatorToTileXY(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 3));
     assertTileXYEquals(AUSTIN_TILEXY_8,       QuadkeyUtils.mercatorToTileXY(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 8));
     assertTileXYEquals(AUSTIN_TILEXY_11,      QuadkeyUtils.mercatorToTileXY(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 11));
@@ -97,9 +97,9 @@ public class QuadtileTests extends PigTests
   //     -30,
   //     // -1e-8, 0, 1e-8, 30, 60, QuadkeyUtils.MAX_MERC_LAT, 90
   //   };
-  // 
+  //
   //   int zl = 5;
-  //   
+  //
   //   for (int lngi = 0; lngi < special_lngs.length; lngi++) {
   //     for (int latj = 0; latj < special_lats.length; latj++) {
   //       int[] tile_xy = QuadkeyUtils.mercatorToTileXY(special_lngs[lngi], special_lats[latj], zl);
@@ -109,9 +109,9 @@ public class QuadtileTests extends PigTests
   //   }
   // }
 
-  
+
   // System.err.println( String.format("%6d %6d %6d %6d %3d %19.14f %19.14f %8d %8d %8d %8d %s\tmain",
-  //     tile_xy[0], 
+  //     tile_xy[0],
   //     txy_2[0],
   //     tile_xy[1],
   //     txy_2[1],
@@ -146,17 +146,17 @@ public class QuadtileTests extends PigTests
     Assert.assertEquals(7,                     QuadkeyUtils.maxTileIdx(3));
     Assert.assertEquals(ENDWLD_TILEXY_21[0],   QuadkeyUtils.maxTileIdx(21));
     Assert.assertEquals(0X7FFFFFFF,            QuadkeyUtils.maxTileIdx(31));
-    
+
     Assert.assertEquals(0L,                    QuadkeyUtils.maxQuadkey(0));
     Assert.assertEquals(63,                    QuadkeyUtils.maxQuadkey(3));
     Assert.assertEquals(0x3FFFFFFFFFFFFFFFL,   QuadkeyUtils.maxQuadkey(31));
   }
-  
+
   @Test
   public void quadstrTest() throws Exception
   {
     int[] res_xy;
-    
+
     assertTileXYEquals(AUSTIN_TILEXY_3,           QuadkeyUtils.quadstrToTileXY("023"             ));
     assertTileXYEquals(AUSTIN_TILEXY_8,           QuadkeyUtils.quadstrToTileXY("02313012"        ));
     assertTileXYEquals(AUSTIN_TILEXY_11,          QuadkeyUtils.quadstrToTileXY("02313012033"     ));
@@ -190,8 +190,8 @@ public class QuadtileTests extends PigTests
     String[] strs = { "1111 1111", "1111 1110", "1111 2111", "1211 1111", "2111 1111", "1113 1111" };
     for (int ii = 0; ii < strs.length; ii++) {
       QuadkeyUtils.smallestContaining("1111 1111", strs[ii]);
-    } 
-    
+    }
+
     // identical tiles give tile itself
     Assert.assertEquals("22113111", QuadkeyUtils.smallestContaining("2211 3111", "2211 3111"));
     Assert.assertEquals("00000000", QuadkeyUtils.smallestContaining("0000 0000", "0000 0000"));
@@ -202,7 +202,7 @@ public class QuadtileTests extends PigTests
     Assert.assertEquals("1230123",  QuadkeyUtils.smallestContaining("1230 1233", "1230 1230"));
     Assert.assertEquals("1230123",  QuadkeyUtils.smallestContaining("1230 1233", "1230 1231"));
     Assert.assertEquals("1230123",  QuadkeyUtils.smallestContaining("1230 1233", "1230 1232"));
-    
+
     // lots of low bits can be the same, highest difference counts
     Assert.assertEquals("",         QuadkeyUtils.smallestContaining("2231 1231", "1231 1231"));
     Assert.assertEquals("22",       QuadkeyUtils.smallestContaining("2201 1111", "2211 1111"));
@@ -228,17 +228,17 @@ public class QuadtileTests extends PigTests
     // for (int idx = 0; idx < lats.length; idx++) {
     //   QuadkeyUtils.tilesCoveringCircle(REYKJAVIK_LNGLAT[0]+lats[idx], REYKJAVIK_LNGLAT[1], 100000, 10);
     // }
-    // 
+    //
     // for (int idx = 0; idx < lats.length; idx++) {
     //   QuadkeyUtils.tilesCoveringCircle(-REYKJAVIK_LNGLAT[0]-lats[idx], REYKJAVIK_LNGLAT[1], 100000, 10);
     // }
-    // 
+    //
     // for (int idx = 0; idx < lats.length; idx++) {
     //   QuadkeyUtils.tilesCoveringCircle(-176-lats[idx], REYKJAVIK_LNGLAT[1], 200000, 7);
-    // }    
+    // }
     // for (int idx = 0; idx < lats.length; idx++) {
     //   QuadkeyUtils.tilesCoveringCircle(172.1+2*lats[idx], REYKJAVIK_LNGLAT[1], 200000, 7);
-    // }    
+    // }
     for (int idx = 0; idx < lats.length; idx++) {
       QuadkeyUtils.tilesCoveringCircle(50, 51.5 + 2*lats[idx], 600000, 6);
     }
@@ -252,64 +252,64 @@ public class QuadtileTests extends PigTests
       QuadkeyUtils.tilesCoveringCircle(50, 84.0 + 2*lats[idx], 600000, 6);
     }
 
-    
-    
+
+
     // double vals[] = {
     //   QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  10),
     //   QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  10),
     //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 10),
     //   QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 10),
-    // 
+    //
     //   QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000),
     //   QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000),
     //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000),
     //   QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000),
-    // 
+    //
     //   QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000000),
     //   QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000000),
     //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000),
     //   QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000),
-    //   
+    //
     //   QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], QuadkeyUtils.EARTH_RADIUS),
-    //   
+    //
     //   QuadkeyUtils.latNorth(        0, 0.5 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(        0, 1.0 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(        0, 2.0 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(        0, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-    // 
+    //
     //   QuadkeyUtils.latNorth(       90, 0.5 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(       90, 1.0 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(       90, 2.0 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(       90, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-    // 
+    //
     //   QuadkeyUtils.latNorth(       30, 0.5 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(       30, 1.0 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(       30, 2.0 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(       30, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-    // 
+    //
     //   QuadkeyUtils.latNorth(      6.9, 0.5 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(      6.9, 1.0 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(      6.9, 2.0 * QuadkeyUtils.EARTH_RADIUS),
     //   QuadkeyUtils.latNorth(      6.9, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-    // 
+    //
     //   QuadkeyUtils.latNorth(       90, 10),
     //   QuadkeyUtils.latNorth(       90, 1000),
     //   QuadkeyUtils.latNorth(       90, 1000000),
-    // 
+    //
     //   QuadkeyUtils.latNorth(      -90, 10),
     //   QuadkeyUtils.latNorth(      -90, 1000),
     //   QuadkeyUtils.latNorth(      -90, 1000000),
-    // 
+    //
     //   QuadkeyUtils.latNorth(  90,   0, 10000),
-    // 
+    //
     //   // QuadkeyUtils.lngEast(         0, 0.5 * QuadkeyUtils.EARTH_RADIUS),
     //   // QuadkeyUtils.lngEast(         0, 1.0 * QuadkeyUtils.EARTH_RADIUS),
     //   // QuadkeyUtils.lngEast(         0, 2.0 * QuadkeyUtils.EARTH_RADIUS),
     //   // QuadkeyUtils.lngEast(         0, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-    //   
+    //
     //   // QuadkeyUtils.lngEast(   90,   0, 10000),
     //   // QuadkeyUtils.lngEast(    0,   0, 10000),
     //   // QuadkeyUtils.lngEast( -180,   0, 10000),
@@ -318,18 +318,18 @@ public class QuadtileTests extends PigTests
     //   // QuadkeyUtils.lngEast(   0,  -90, 10000),
     //   1
     // };
-    // 
+    //
     // for (int ii = 0; ii < vals.length; ii++) {
     //   System.err.println(String.format("%20.15f", vals[ii]));
     // }
-    // 
+    //
     // // // calculates the point a given distance directly north from a lat/lng
     // // assertClose(39.2671, // 39.28797666667
     // //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000) );
     // // assertClose(-87.3457,
     // //   QuadkeyUtils.lngEast( AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000) );
   }
-  
+
 
   /****************************************************************************
    *
@@ -338,20 +338,20 @@ public class QuadtileTests extends PigTests
    */
 
   private void assertTileXYEquals(int[] exp_xyz, int[] res_xyz) {
-    Assert.assertEquals(exp_xyz[0], res_xyz[0]); 
-    Assert.assertEquals(exp_xyz[1], res_xyz[1]); 
+    Assert.assertEquals(exp_xyz[0], res_xyz[0]);
+    Assert.assertEquals(exp_xyz[1], res_xyz[1]);
     // Assert.assertEquals(exp_xyz[2], res_xyz[2]);
   }
 
   private void assertTileXYZsEquals(int[] exp_xyz, int[] res_xyz) {
-    Assert.assertEquals(exp_xyz[0], res_xyz[0]); 
-    Assert.assertEquals(exp_xyz[1], res_xyz[1]); 
+    Assert.assertEquals(exp_xyz[0], res_xyz[0]);
+    Assert.assertEquals(exp_xyz[1], res_xyz[1]);
     // Assert.assertEquals(exp_xyz[2], res_xyz[2]);
   }
 
   private void assertQkZlEquals(long[] res_qkzl, long... exp_qkzl) {
-    Assert.assertEquals(exp_qkzl[0], res_qkzl[0]); 
-    Assert.assertEquals(exp_qkzl[1], res_qkzl[1]); 
+    Assert.assertEquals(exp_qkzl[0], res_qkzl[0]);
+    Assert.assertEquals(exp_qkzl[1], res_qkzl[1]);
   }
 
   private void assertLnglatsWithin(double[] exp_ll, double[] res_ll, double eps) {

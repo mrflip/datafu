@@ -41,7 +41,7 @@ import org.json.JSONException;
 
 public class QuadDecompose extends SimpleEvalFunc<String>
 {
-  
+
   QuadTree quadTree;
   QuadTreeIterator quadTreeIter;
 
@@ -50,8 +50,8 @@ public class QuadDecompose extends SimpleEvalFunc<String>
 
   public static final int   WGS84 = 4326;
   private SpatialReference spatialReference;
-    
-  
+
+
   public QuadDecompose() {
     this(DEFAULT_HEIGHT);
   }
@@ -103,7 +103,7 @@ public class QuadDecompose extends SimpleEvalFunc<String>
       Geometry    geom     = ogcObj.getEsriGeometry();
 
       buildQuadTree(geom);
-      
+
       // Create our Point directly from longitude and latitude
       Point bal_11 = new Point(-76.6,39.33);
       Point bos_07 = new Point(-71.1,42.35);
@@ -116,7 +116,7 @@ public class QuadDecompose extends SimpleEvalFunc<String>
       if (featureIndex >= 0) { res = res + "bal_11"; };
       featureIndex = queryQuadTree(bos_07, geom);
       if (featureIndex >= 0) { res = res + geom.getDescription(); };
-        
+
       log.debug(res);
       return   res;
     }

@@ -27,7 +27,7 @@ import datafu.pig.geo.GeometryUtils;
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-public class GeoIntersects extends SimpleEvalFunc<String>
+public class GeoIntersection extends SimpleEvalFunc<String>
 {
   public String call(String payload_1, String payload_2) {
     OGCGeometry geom_1 = GeometryUtils.payloadToGeom(payload_1);

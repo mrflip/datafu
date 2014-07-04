@@ -34,7 +34,7 @@ public class GeoArea extends SimpleEvalFunc<String>
     if (geom == null){ return null; }
     try {
       //
-      Double area = ogcGeometry.getEsriGeometry().calculateArea2D();
+      Double area = geom.getEsriGeometry().calculateArea2D();
       //
       return area;
     }
