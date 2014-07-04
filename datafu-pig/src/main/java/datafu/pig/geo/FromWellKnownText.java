@@ -35,20 +35,18 @@ public class FromWellKnownText extends SimpleEvalFunc<String>
 {
   public String call(String wkt, Integer wkid) {
     try {
-      SpatialReference spatialReference = null;
-      if (wkid != GeometryUtils.WKID_UNKNOWN) {
-        spatialReference = SpatialReference.create(wkid);
+      OGCGeometry geom = OGCGeometry.fromText(wkt);
+      if (geom == null){
+        // LogUtils.Log_ArgumentsNull(LOG);
+        return null;
       }
-
-      OGCGeometry ogcObj = OGCGeometry.fromText(wkt);
-      ogcObj.setSpatialReference(spatialReference);
-      Geometry esriGeom = ogcObj.getEsriGeometry();
-
-      String geo_json = ogcObj.asGeoJson();
-      return geo_json;
+      //
+      return GeometryUtils.pigPayload(geom);
     }
     catch (Exception err) {
-      throw new RuntimeException(err);
+      String msg = "Can't parse input (" + err.getMessage() + "): " + GeometryUtils.snippetize(wkt);
+      GeometryUtils.dump(msg);
+      throw new RuntimeException(msg, err);
     }
   }
 
@@ -58,3 +56,13 @@ public class FromWellKnownText extends SimpleEvalFunc<String>
     return new Schema(new Schema.FieldSchema("wktext", DataType.CHARARRAY));
   }
 }
+
+
+//
+// SpatialReference spatialReference = null;
+// if (wkid != GeometryUtils.WKID_UNKNOWN) {
+//   spatialReference = SpatialReference.create(wkid);
+// }
+// //
+// geom.setSpatialReference(spatialReference);
+// Geometry esGeom = geom.getEsriGeometry();

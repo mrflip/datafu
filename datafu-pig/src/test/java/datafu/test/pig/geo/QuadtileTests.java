@@ -36,8 +36,9 @@ import datafu.pig.geo.QuadkeyUtils;
 public class QuadtileTests extends PigTests
 {
 
-  private final static double[] AUSTIN_LNGLAT    = { -97.759003, 30.273884 };
-  private final static double[] SANANT_LNGLAT    = { -98.486123, 29.42575  };
+  private final static double[] AUSTIN_LNGLAT    = { -97.759003,  30.273884 };
+  private final static double[] SANANT_LNGLAT    = { -98.486123,  29.42575  };
+  private final static double[] REYKJAVIK_LNGLAT = { -21.940556,  64.13     };
   private final static int[]    AUSTIN_TILEXY_3  = {    1,     3,  3 };
   private final static int[]    AUSTIN_TILEXY_8  = {   58,   105,  8 };
   private final static int[]    AUSTIN_TILEXY_11 = {  467,   843, 11 };
@@ -79,34 +80,34 @@ public class QuadtileTests extends PigTests
     assertTileXYEquals(ENDWLD_TILEXY_21,      QuadkeyUtils.mercatorToTileXY(180,         -85.05112878,   21));
   }
 
-  @Test
-  public void mercatorTest() throws Exception
-  {
-    double[] special_lngs = {
-      -180, Math.nextUp(-180),
-      QuadkeyUtils.MIN_MERC_LNG,
-      -60, -30,
-      -1e-8, 0, 1e-8,
-      30, 60,
-      QuadkeyUtils.MAX_MERC_LNG,
-      180
-    };
-    double[] special_lats = {
-      // -90,  QuadkeyUtils.MIN_MERC_LAT, -60,
-      -30,
-      // -1e-8, 0, 1e-8, 30, 60, QuadkeyUtils.MAX_MERC_LAT, 90
-    };
-
-    int zl = 5;
-    
-    for (int lngi = 0; lngi < special_lngs.length; lngi++) {
-      for (int latj = 0; latj < special_lats.length; latj++) {
-        int[] tile_xy = QuadkeyUtils.mercatorToTileXY(special_lngs[lngi], special_lats[latj], zl);
-        System.err.println(String.format("%8d %8d %4d %20.15f %20.15f mercatorTest",
-            tile_xy[0], tile_xy[1], zl, special_lngs[lngi], special_lats[latj]));
-      }
-    }
-  }
+  // @Test
+  // public void mercatorTest() throws Exception
+  // {
+  //   double[] special_lngs = {
+  //     -180, Math.nextUp(-180),
+  //     QuadkeyUtils.MIN_MERC_LNG,
+  //     -60, -30,
+  //     -1e-8, 0, 1e-8,
+  //     30, 60,
+  //     QuadkeyUtils.MAX_MERC_LNG,
+  //     180
+  //   };
+  //   double[] special_lats = {
+  //     // -90,  QuadkeyUtils.MIN_MERC_LAT, -60,
+  //     -30,
+  //     // -1e-8, 0, 1e-8, 30, 60, QuadkeyUtils.MAX_MERC_LAT, 90
+  //   };
+  // 
+  //   int zl = 5;
+  //   
+  //   for (int lngi = 0; lngi < special_lngs.length; lngi++) {
+  //     for (int latj = 0; latj < special_lats.length; latj++) {
+  //       int[] tile_xy = QuadkeyUtils.mercatorToTileXY(special_lngs[lngi], special_lats[latj], zl);
+  //       System.err.println(String.format("%8d %8d %4d %20.15f %20.15f mercatorTest",
+  //           tile_xy[0], tile_xy[1], zl, special_lngs[lngi], special_lats[latj]));
+  //     }
+  //   }
+  // }
 
   
   // System.err.println( String.format("%6d %6d %6d %6d %3d %19.14f %19.14f %8d %8d %8d %8d %s\tmain",
@@ -220,80 +221,113 @@ public class QuadtileTests extends PigTests
   public void geometryTest() throws Exception
   {
 
-    double vals[] = {
-      QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  10),
-      QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  10),
-      QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 10),
-      QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 10),
-
-      QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000),
-      QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000),
-      QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000),
-      QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000),
-
-      QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000000),
-      QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000000),
-      QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000),
-      QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000),
-      
-      QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], QuadkeyUtils.EARTH_RADIUS),
-      
-      QuadkeyUtils.latNorth(        0, 0.5 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(        0, 1.0 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(        0, 2.0 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(        0, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-
-      QuadkeyUtils.latNorth(       90, 0.5 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(       90, 1.0 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(       90, 2.0 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(       90, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-
-      QuadkeyUtils.latNorth(       30, 0.5 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(       30, 1.0 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(       30, 2.0 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(       30, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-
-      QuadkeyUtils.latNorth(      6.9, 0.5 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(      6.9, 1.0 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(      6.9, 2.0 * QuadkeyUtils.EARTH_RADIUS),
-      QuadkeyUtils.latNorth(      6.9, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-
-      QuadkeyUtils.latNorth(       90, 10),
-      QuadkeyUtils.latNorth(       90, 1000),
-      QuadkeyUtils.latNorth(       90, 1000000),
-
-      QuadkeyUtils.latNorth(      -90, 10),
-      QuadkeyUtils.latNorth(      -90, 1000),
-      QuadkeyUtils.latNorth(      -90, 1000000),
-
-      QuadkeyUtils.latNorth(  90,   0, 10000),
-
-      // QuadkeyUtils.lngEast(         0, 0.5 * QuadkeyUtils.EARTH_RADIUS),
-      // QuadkeyUtils.lngEast(         0, 1.0 * QuadkeyUtils.EARTH_RADIUS),
-      // QuadkeyUtils.lngEast(         0, 2.0 * QuadkeyUtils.EARTH_RADIUS),
-      // QuadkeyUtils.lngEast(         0, 4.0 * QuadkeyUtils.EARTH_RADIUS),
-      
-      // QuadkeyUtils.lngEast(   90,   0, 10000),
-      // QuadkeyUtils.lngEast(    0,   0, 10000),
-      // QuadkeyUtils.lngEast( -180,   0, 10000),
-      // QuadkeyUtils.lngEast( -180,   0, 10000),
-      // QuadkeyUtils.lngEast(   0,   90, 10000),
-      // QuadkeyUtils.lngEast(   0,  -90, 10000),
-      1
-    };
-    
-    for (int ii = 0; ii < vals.length; ii++) {
-      System.err.println(String.format("%20.15f", vals[ii]));
+    double[] lats = { 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 };
+    // for (int idx = 0; idx < lats.length; idx++) {
+    //   QuadkeyUtils.tilesCoveringCircle(AUSTIN_LNGLAT[0]+lats[idx],    AUSTIN_LNGLAT[1],    300000, 10);
+    // }
+    // for (int idx = 0; idx < lats.length; idx++) {
+    //   QuadkeyUtils.tilesCoveringCircle(REYKJAVIK_LNGLAT[0]+lats[idx], REYKJAVIK_LNGLAT[1], 100000, 10);
+    // }
+    // 
+    // for (int idx = 0; idx < lats.length; idx++) {
+    //   QuadkeyUtils.tilesCoveringCircle(-REYKJAVIK_LNGLAT[0]-lats[idx], REYKJAVIK_LNGLAT[1], 100000, 10);
+    // }
+    // 
+    // for (int idx = 0; idx < lats.length; idx++) {
+    //   QuadkeyUtils.tilesCoveringCircle(-176-lats[idx], REYKJAVIK_LNGLAT[1], 200000, 7);
+    // }    
+    // for (int idx = 0; idx < lats.length; idx++) {
+    //   QuadkeyUtils.tilesCoveringCircle(172.1+2*lats[idx], REYKJAVIK_LNGLAT[1], 200000, 7);
+    // }    
+    for (int idx = 0; idx < lats.length; idx++) {
+      QuadkeyUtils.tilesCoveringCircle(50, 51.5 + 2*lats[idx], 600000, 6);
     }
+    for (int idx = 0; idx < lats.length; idx++) {
+      QuadkeyUtils.tilesCoveringCircle(50, 62.1 + 2*lats[idx], 600000, 6);
+    }
+    for (int idx = 0; idx < lats.length; idx++) {
+      QuadkeyUtils.tilesCoveringCircle(50, 82.5 + 2*lats[idx], 600000, 6);
+    }
+    for (int idx = 0; idx < lats.length; idx++) {
+      QuadkeyUtils.tilesCoveringCircle(50, 84.0 + 2*lats[idx], 600000, 6);
+    }
+
     
-    // // calculates the point a given distance directly north from a lat/lng
-    // assertClose(39.2671, // 39.28797666667
-    //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000) );
-    // assertClose(-87.3457,
-    //   QuadkeyUtils.lngEast( AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000) );
+    
+    // double vals[] = {
+    //   QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  10),
+    //   QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  10),
+    //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 10),
+    //   QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 10),
+    // 
+    //   QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000),
+    //   QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000),
+    //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000),
+    //   QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000),
+    // 
+    //   QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000000),
+    //   QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  1000000),
+    //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000),
+    //   QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000),
+    //   
+    //   QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latSouth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], QuadkeyUtils.EARTH_RADIUS),
+    //   
+    //   QuadkeyUtils.latNorth(        0, 0.5 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(        0, 1.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(        0, 2.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(        0, 4.0 * QuadkeyUtils.EARTH_RADIUS),
+    // 
+    //   QuadkeyUtils.latNorth(       90, 0.5 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(       90, 1.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(       90, 2.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(       90, 4.0 * QuadkeyUtils.EARTH_RADIUS),
+    // 
+    //   QuadkeyUtils.latNorth(       30, 0.5 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(       30, 1.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(       30, 2.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(       30, 4.0 * QuadkeyUtils.EARTH_RADIUS),
+    // 
+    //   QuadkeyUtils.latNorth(      6.9, 0.5 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(      6.9, 1.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(      6.9, 2.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   QuadkeyUtils.latNorth(      6.9, 4.0 * QuadkeyUtils.EARTH_RADIUS),
+    // 
+    //   QuadkeyUtils.latNorth(       90, 10),
+    //   QuadkeyUtils.latNorth(       90, 1000),
+    //   QuadkeyUtils.latNorth(       90, 1000000),
+    // 
+    //   QuadkeyUtils.latNorth(      -90, 10),
+    //   QuadkeyUtils.latNorth(      -90, 1000),
+    //   QuadkeyUtils.latNorth(      -90, 1000000),
+    // 
+    //   QuadkeyUtils.latNorth(  90,   0, 10000),
+    // 
+    //   // QuadkeyUtils.lngEast(         0, 0.5 * QuadkeyUtils.EARTH_RADIUS),
+    //   // QuadkeyUtils.lngEast(         0, 1.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   // QuadkeyUtils.lngEast(         0, 2.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   // QuadkeyUtils.lngEast(         0, 4.0 * QuadkeyUtils.EARTH_RADIUS),
+    //   
+    //   // QuadkeyUtils.lngEast(   90,   0, 10000),
+    //   // QuadkeyUtils.lngEast(    0,   0, 10000),
+    //   // QuadkeyUtils.lngEast( -180,   0, 10000),
+    //   // QuadkeyUtils.lngEast( -180,   0, 10000),
+    //   // QuadkeyUtils.lngEast(   0,   90, 10000),
+    //   // QuadkeyUtils.lngEast(   0,  -90, 10000),
+    //   1
+    // };
+    // 
+    // for (int ii = 0; ii < vals.length; ii++) {
+    //   System.err.println(String.format("%20.15f", vals[ii]));
+    // }
+    // 
+    // // // calculates the point a given distance directly north from a lat/lng
+    // // assertClose(39.2671, // 39.28797666667
+    // //   QuadkeyUtils.latNorth(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000) );
+    // // assertClose(-87.3457,
+    // //   QuadkeyUtils.lngEast( AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 1000000) );
   }
   
 

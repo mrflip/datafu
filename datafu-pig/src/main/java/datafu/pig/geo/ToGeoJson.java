@@ -21,27 +21,26 @@ package datafu.pig.geo;
 
 import org.apache.pig.data.DataType;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
+import org.json.JSONException;
 
-import datafu.pig.geo.GeometryUtils;
 import datafu.pig.util.SimpleEvalFunc;
 
-import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.GeometryEngine;
+import datafu.pig.geo.GeometryUtils;
 import com.esri.core.geometry.ogc.OGCGeometry;
-
-import com.esri.core.geometry.SpatialReference;
 
 public class ToGeoJson extends SimpleEvalFunc<String>
 {
-  public String call(String wkt)  {
+  public String call(String payload)  {
     try {
-      OGCGeometry ogcObj   = OGCGeometry.fromText(wkt);
-      Geometry    esriGeom = ogcObj.getEsriGeometry();
-
-      return ogcObj.asGeoJson();
+      OGCGeometry geom = GeometryUtils.payloadToGeom(payload);
+      if (geom == null){ return null; }
+      //
+      return geom.asGeoJson();
     }
     catch (Exception err) {
-      throw new RuntimeException(err);
+      String msg = "Can't convert to GeoJSON ("+err.getMessage()+"): "+GeometryUtils.printablePayload(payload);
+      log.error(msg);
+      throw new RuntimeException(msg, err);
     }
   }
 

@@ -10,10 +10,10 @@ import com.esri.core.geometry.NumberUtils;
 // import org.apache.pig.data.TupleFactory;
 // import org.apache.pig.data.BagFactory;
 // import org.apache.pig.data.DataBag;
-// 
+//
 // import com.esri.core.geometry.Geometry;
 // import com.esri.core.geometry.ogc.OGCGeometry;
-// 
+//
 // import com.esri.core.geometry.Envelope;
 // import com.esri.core.geometry.Envelope2D;
 // import com.esri.core.geometry.GeometryEngine;
@@ -21,7 +21,7 @@ import com.esri.core.geometry.NumberUtils;
 // import com.esri.core.geometry.QuadTree;
 // import com.esri.core.geometry.QuadTree.QuadTreeIterator;
 // import com.esri.core.geometry.SpatialReference;
-// 
+//
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -82,23 +82,27 @@ import org.apache.commons.logging.LogFactory;
  * <li><a href="http://wiki.openstreetmap.org/wiki/Tilenames#Implementations">Open Street Map Wiki</a></li>
  * <li><a href="https://en.wikipedia.org/wiki/Morton_number_(number_theory)">Wikipedia: Morton Number</a></li>
  * <li><a href="https://graphics.stanford.edu/~seander/bithacks.html#InterleaveTableLookup">Interleaving Morton Numbers"</a>
+ * <li><a href="http://www.radicalcartography.net/?projectionref">Display and Thematic Map Projection Reference</a></li>
  * </ul>
 */
 public final class QuadkeyUtils {
   private static final Log LOG = LogFactory.getLog(QuadkeyUtils.class);
 
+  public static final double MIN_MERC_LNG    =  -180.0;
+  public static final double MAX_MERC_LNG    =   180.0;
+  public static final double MIN_MERC_LNGRAD = Math.toRadians(MIN_MERC_LNG);
+  public static final double MAX_MERC_LNGRAD = Math.toRadians(MAX_MERC_LNG);
+  //
   public static final double MIN_MERC_LAT    =  -85.05112878; // Math.atan(Math.sinh(Math.PI))*180/Math.PI; //
   public static final double MAX_MERC_LAT    =   85.05112878;
-  public static final double MIN_MERC_LNG   =  -180.0;
-  public static final double MAX_MERC_LNG   = 180.0;
+  public static final double MIN_MERC_LATRAD = Math.toRadians(MIN_MERC_LAT);
+  public static final double MAX_MERC_LATRAD = Math.toRadians(MAX_MERC_LAT);
+  //
+  public static final double GLOBE_RADIUS    = 6378137.0;
+  public static final double GLOBE_CIRCUM    = GLOBE_RADIUS * 2.0 * Math.PI;
 
-  public static final double EARTH_RADIUS    = 6378137.0;
-  public static final double EARTH_CIRCUM    = EARTH_RADIUS * 2.0 * Math.PI;
-  public static final double EARTH_HALF_CIRC = EARTH_CIRCUM / 2.0;
-  public static final double FULL_RESOLUTION = EARTH_CIRCUM / 256.0;
-
-  public static final int   MAX_ZOOM_LEVEL  = 31;
-  public static final int   TILE_PIXEL_SIZE = 256;
+  public static final int   MAX_ZOOM_LEVEL   = 31;
+  public static final int   TILE_PIXEL_SIZE  = 256;
 
   // The arctan/log/tan/sinh business gives slight loss of precision. We could
   // live with that on the whole, but it can push the boundary of a tile onto
@@ -131,27 +135,24 @@ public final class QuadkeyUtils {
    * @return        { tile_x, tile_y }
    */
   public static int[] mercatorToTileXY(double lng, double lat, final int zl) {
-    assert lng <= 180 && lng >= -180 && lat <= 90 && lat >= -90;
-    lng  = NumberUtils.snap(lng,  MIN_MERC_LNG,  MAX_MERC_LNG);
-    lat  = NumberUtils.snap(lat,  MIN_MERC_LAT,  MAX_MERC_LAT);
+    int      mapsize = mapTileSize(zl);
     //
-    int    mapsize    = mapTileSize(zl);
-    double tx         = mapsize * (lng + 180.0) / 360.0;
-    double ty         = mapsize * (1 - Math.log(Math.tan( NumberUtils.PI_D4 + (Math.PI*lat/360.0) ))/Math.PI)/2;
-    //
-    ty = ty + EDGE_FUDGE; // See note above EDGE_FUDGE
-    int[]  tile_xy = {
-      (int) NumberUtils.snap(Math.floor(tx), 0, mapsize-1),
-      (int) NumberUtils.snap(Math.floor(ty), 0, mapsize-1)
+    double[] proj_xy = mercatorToProjXY(lng, lat, zl);
+    int[]    tile_xy = {
+      (int) NumberUtils.snap(Math.floor(proj_xy[0]), 0, mapsize-1),
+      (int) NumberUtils.snap(Math.floor(proj_xy[1]), 0, mapsize-1)
     };
     return tile_xy;
   }
-  // System.err.println(String.format("%8d %8d %4d %20.15f %20.15f mercatorToTileXY",
-  //     tile_xy[0], tile_xy[1], zl, lng, lat));
-  
+
   /**
    * Longitude/latitude WGS-84 coordinates (in degrees) of the top left (NW)
    * corner of the given tile in the popular tileserver Mercator projection.
+   *
+   * We allow this to be called with tile index = mapsize, i.e. the index of a
+   * hypothetical tile hanging off the right or bottom edge of the map, so that
+   * you can call this function on tx+1 or ty+1 to get the right/bottom edge of
+   * a tile.
    *
    * @param tx      X index of tile
    * @param ty      Y index of tile
@@ -159,13 +160,50 @@ public final class QuadkeyUtils {
    * @return        { longitude, latitude }
    */
   public static double[] tileXYToMercator(int tx, int ty, int zl) {
-    int mapsize  = mapTileSize(zl);
-    int maphalf  = mapsize / 2;
+    return projXYToMercator(tx, ty, zl);
+  }
+
+  /**
+   * XY coordinates of a point at given zoom level using the popular tileserver
+   * Mercator projection. This is the fractional equivalent of the TileXY index.
+   *
+   * @param lng     Longitude of the point, in WGS-84 degrees
+   * @param lat     Latitude of the point, in WGS-84 degrees
+   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @return        { tile_x, tile_y }
+   */
+  public static double[] mercatorToProjXY(double lng, double lat, final int zl) {
+    assert lng <= 180 && lng >= -180 && lat <= 90 && lat >= -90;
+    lng = NumberUtils.snap(lng,  MIN_MERC_LNG,  MAX_MERC_LNG);
+    lat = NumberUtils.snap(lat,  MIN_MERC_LAT,  MAX_MERC_LAT);
     //
-    tx = NumberUtils.snap(tx, 0, mapsize-1);
-    ty = NumberUtils.snap(ty, 0, mapsize-1);
+    int      mapsize = mapTileSize(zl);
+    double   tx      = mapsize   * (lng + 180.0) / 360.0;
+    double   ty      = mapsize/2 * (1 - Math.log(Math.tan( (90 + lat)*Math.PI/360.0 ))/Math.PI);
+    //
+    ty               = ty + EDGE_FUDGE; // See note above EDGE_FUDGE
+    double[] tile_xy = { tx, ty };
+    return tile_xy;
+  }
+  // System.err.println(String.format("%8d %8d %4d %20.15f %20.15f mercatorToTileXY",
+  //     tile_xy[0], tile_xy[1], zl, lng, lat));
+
+  /**
+   * Longitude/latitude WGS-84 coordinates (in degrees) of the given point in
+   * the popular tileserver Mercator projection.
+   *
+   * @param tx      X index of tile
+   * @param ty      Y index of tile
+   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @return        { longitude, latitude }
+   */
+  public static double[] projXYToMercator(double tx, double ty, int zl) {
+    int mapsize  = mapTileSize(zl);
+    tx = NumberUtils.snap(tx, 0, mapsize);
+    ty = NumberUtils.snap(ty, 0, mapsize);
+    //
     double lng     = 360.0 * tx / mapsize - 180.0;
-    double lat     = 90.0 - 360.0/Math.PI*Math.atan( Math.exp(Math.PI*ty/maphalf - Math.PI) );
+    double lat     = 90.0 - 360.0/Math.PI*Math.atan( Math.exp(Math.PI*(ty*2/mapsize - 1)) );
     //
     double[] result = {lng, lat};
     return result;
@@ -246,106 +284,144 @@ public final class QuadkeyUtils {
     return tileXYToMercator(tile_xyz[0], tile_xyz[1], tile_xyz[2]);
   }
 
-  // Generic formulas given distance and bearing
-  //
-  // http://williams.best.vwh.net/avform.htm#LL
-  //
-  // Small-distance approximation:
-  //
-  // lat     = asin(  sin(lat1)*cos(d) + cos(lat1)*sin(d)*cos(tc) )
-  // IF (cos(lat)=0)
-  //    lon  = lon1      // endpoint a pole
-  // ELSE
-  //    dlon = asin(  sin(tc)   * sin(d) / cos(lat))
-  //    lon  = mod(lon1 + dlon + pi, 2*pi) - pi
-  // ENDIF
-  //
-  // Better formula:
-  //
-  // lat     = asin(  sin(lat1)*cos(d) + cos(lat1)*sin(d)*cos(tc) )
-  // dlon    = atan2( sin(tc)   * sin(d) * cos(lat1), cos(d) - sin(lat1)*sin(lat))
-  // lon     = mod(lon1 + dlon + pi, 2*pi) - pi
-  //
-  // For special headings N and S (which are those we care about):
-  //
-  // N (tc=0):  lat = asin(  sin(lat1)*cos(d) + cos(lat1)*sin(d) )
-  //                = asin(  sin(lat1 + d) )
-  //                = lat1 + d
-  // 
-  // S (tc=pi): lat = asin(sin(lat1)*cos(d)-cos(lat1)*sin(d))
-  //                = asin(sin(lat1 - d) )
-  //                = lat1 - d
-  // 
-  // E, W (tc=pi/2 or 3*pi/2, so that sin(tc) is 1 or -1):
-  //            lat = asin( sin(lat1) * cos(d) )
-  //
-  // dlon = atan(   sin(d) * cos(lat1), cos(d) - sin(lat1)*sin(lat))
-  // dlon = atan(   sin(d) * cos(lat1), (1 - sin(lat1)^2)*cos(d) )
-  // dlon = atan(   sin(d) * cos(lat1), (cos(lat1)^2)*cos(d) )
-  // dlon = atan(   sin(d)            /  cos(lat1) * cos(d) )
-  // dlon = atan(   tan(d)            /  cos(lat1) )
-  
   /**
-   * Latitude (WGS-84 degrees) directly north by the given distance from that point
+   * Maximum WGS-84 latitude / longitude extent of the circle covering a given
+   * distance from the point. The longitude extent is **not** the equivalent of
+   * walking east and west from the point, because the meridians can close faster
+   * than the shape of the circle.
    *
-   * Note that the result <em>is not wrapped to [-90, 90]</em> -- it's up to you
-   * to decide whether walking north from 88 deg latitude by the equivalent of
-   * 10 degrees should be 82 degrees (because you sailed on through the pole
-   * following the meridian) or 90 degrees (because you can't walk north from
-   * the north pole, silly!)
+   * http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
+   * http://gis.stackexchange.com/questions/19221/find-tangent-point-on-circle-furthest-east-or-west
+   *
+   * Coordinates are returned as (west, south, east, and north) extents,
+   * i.e. min lng/lat, max lng/lat. Keep in mind that the north coordinate will
+   * have a smaller tile index than the southern.
+   *
+   * For longitude, the values are _unclipped_: they may extend below -180 or
+   * above 180. For example, a circle of 200 km at 179.9 deg longitude might run
+   * from longitudes 175 to 184, four degrees off the right side of the map.
+   *
+   * Areas that extend through the poles necessarily sweep the entire range of
+   * longitudes, meaning that the bounding box -- while accurate -- has a
+   * significantly larger extent than the circle. See tilesCoveringCircle for
+   * one way this can lead to grief.
+   *
+   * @param lng     Longitude of the point, in WGS-84 degrees
+   * @param lat     Latitude of the point, in WGS-84 degrees
+   * @param dist    Distance in meters
+   * @return        [west, south, east, north] -- i.e. min lng/lat, max lng/lat
    */
-  public static double latNorthUnclipped(double lat, double distance) {
-    double dist_rad   = Math.PI*(distance / EARTH_RADIUS);
-    double lat_rad   = Math.toRadians(lat);
-    //  double north_lat = Math.toDegrees( Math.asin(Math.sin(lat_rad + dist_rad)) );
+  public static double[] bboxCoordsForCircle(double lng, double lat, double dist) {
+    if (dist == 0) {            double[] point = { lng,     lat,   lng,  lat  }; return point; }
+    if (dist >= GLOBE_CIRCUM) { double[] world = { -180.0, -90.0, 180.0, 90.0 }; return world; }
     //
-    double north_lat = NumberUtils.snap(Math.toDegrees(lat_rad + dist_rad), -90.0, 90.0);
-
-    int    mapsize    = mapTileSize(zl);
-    double tx         = mapsize * (lng + 180.0) / 360.0;
-    double ty         = mapsize * (1 - Math.log(Math.tan( NumberUtils.PI_D4 + (lat_rad/2) ))/Math.PI)/2;
-    
-    // System.err.println(String.format("%10s %10.5f %12.0f %10.5f %10.5f", "",
-    //     lat, distance, north_lat,
-    //     Math.toDegrees(Math.asin(Math.sin(lat_rad + dist_rad)))
-    //                                  ));
-    return north_lat;
+    double lat_rad    = Math.toRadians(lat);
+    double dist_rad   = dist / GLOBE_RADIUS;
+    double north_lat  = Math.toDegrees(lat_rad + dist_rad);
+    double south_lat  = Math.toDegrees(lat_rad - dist_rad);
+    //
+    if (north_lat >= 90 || south_lat <= -90) {
+      // if either was equal-or-past and both are equal-not-past then neither was past...
+      // it only kissed the pole, so sweep the hemisphere not the globe.
+      double lng_d = (north_lat <= 90 && south_lat <= -90 ? 90 : 180);
+      double[] sweeps_pole = { lng-lng_d, (south_lat < -90 ? -90 : south_lat), lng+lng_d, (north_lat >  90 ?  90 : north_lat) };
+      return sweeps_pole;
+    }
+    //
+    double lng_delta = Math.asin( Math.sin(dist_rad) / Math.cos(lat_rad) );
+    lng_delta = (Double.isNaN(lng_delta) ? 90.0 : Math.toDegrees(lng_delta));
+    double east_lng   = lng + lng_delta;
+    double west_lng   = lng - lng_delta;
+    //
+    double[] coords = { west_lng, south_lat, east_lng, north_lat };
+    return coords;
   }
 
   /**
-   * Longitude (WGS-84 degrees) directly east by the given distance from that point
+   * Quadtiles covering the area within a given distance in meters from a point.
+   *
+   * The tiles will cover a larger extent than the circle itself, as it returns
+   * all tiles that cover any part of the bounding box that covers the circle.
+   * And for large areas, this may return tiles that do not actually intersect
+   * the circle (especially for far-northerly points).
+   * 
+   * However, when using this to partition big data sets, In our experience it's
+   * rarely worth filtering out the bits in the corner (consider that a circle
+   * occupies 79% of its bounding square), and even less worth fine-graining the
+   * tile size (blowing up their count) to get a closer tiling. And since <a
+   * href="http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates">
+   * distance on a sphere isn't so simple</a> -- it can be the case that all
+   * corners of a tile are not within your circle while yet parts of the tile
+   * are -- doing that filtering naively isn't a good plan.
+   *
+   * Areas that extend through the poles necessarily sweep the entire range of
+   * longitudes. If they also extend significantly southward, this will blow up
+   * their tile coverage. For a sense of this, a 600 km circle at zoom level 6
+   * on a Mercator grid requires 16 tiles when centered at London (lat 50.5), 25
+   * centered at Reykjavik (lat 62.1), 180 at Alert, Canada (82.5, the most
+   * northern occupied place) and 520 tiles at 84.8 deg.
+   *
+   * So start by using the complete but sometimes overexuberant sets this
+   * returns, and see whether you care. If you find that the northern-latitudes
+   * or lots-of-small-tiles cases are important, look to the (more expensive)
+   * functions that find a minimal tile set using Geometry objects. Also
+   * consider indexing far-northerly points using an alternate scheme.
+   *
+   * @param lng     Longitude of the point, in WGS-84 degrees
+   * @param lat     Latitude of the point, in WGS-84 degrees
+   * @param dist    Distance in meters
+   * @param zl      Zoom level of detail for the tiles
+   * @return        List of quadstr string handles for a superset of the covering tiles
    */
-  public static double lngEastUnclipped(double lng, double lat, double distance) {
-    double radius   = EARTH_RADIUS * Math.sin((NumberUtils.PI_D2 - Math.abs(Math.toRadians(lat))) );
-    double east_lng = Math.toDegrees(Math.toRadians(lng) + (Math.PI*distance/radius));
-    // lat = asin(sin(lat1)*cos(d))
-    return Math.toDegrees(Math.toRadians(lng) + (distance/radius));
+  public static List<String> tilesCoveringCircle(double lng, double lat, double dist, int zl) {
+    List<String> tiles = new ArrayList<String>();
+    //
+    // Get the max/min latitude to index
+    double[] bbox = bboxCoordsForCircle(lng, lat, dist);
+    double   west = bbox[0], south = bbox[1], east = bbox[2], north = bbox[3];
+    //
+    // See if we wrapped off the edge of the world
+    double   west_2 = 0, east_2 = 0;
+    if      (west <= -180 && east >= 180){    east  =  180;      west   = -180; } // whole world
+    else if (west < -180){ west_2 = west+360; east_2 = 180;      west   = -180; } // iterate  west+360..180 and -180..east
+    else if (east >  180){ west_2 = -180;     east_2 = east-360; east   =  180; } // iterate -180..east-360 and  west..180
+    //
+    // Scan over tile indexes. For Mercator, lines of lat/lng have constant tile index so only need two corners
+    int[] txy_min = mercatorToTileXY(west,  north,  zl); // (lower ty is north)
+    int[] txy_max = mercatorToTileXY(east,  south,  zl);
+    addTilesCoveringXYRect(txy_min[0], txy_min[1], txy_max[0], txy_max[1], zl, tiles);
+    //
+    // If we wrapped, also contribute the wrapped portion
+    if (west_2 != 0 || east_2 != 0) {
+      txy_min = mercatorToTileXY(west_2, north,  zl);
+      txy_max = mercatorToTileXY(east_2, south,  zl);
+      addTilesCoveringXYRect(txy_min[0], txy_min[1], txy_max[0], txy_max[1], zl, tiles);
+    }
+    //
+    int[] txy_pt  = mercatorToTileXY(lng, lat, zl);
+    System.err.println(String.format("%10.5f %10.5f %2d %4d | %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f | %5d < %5d > %5d | %5d < %5d > %5d",
+        lng, lat, zl, tiles.size(),
+        west, south, east, north, west_2, east_2,
+        txy_min[0], txy_pt[0], txy_max[0], 
+        txy_min[1], txy_pt[1], txy_max[1]));
+    //
+    return tiles;
   }
 
-  // double lng     = 360.0 * tx / mapsize - 180.0;
-  // double lat     = 90.0 - 360.0/Math.PI*Math.atan( Math.exp(Math.PI*ty/maphalf - Math.PI) );
-  
   /**
-   * Latitude (WGS-84 degrees) directly south by the given distance from that point
+   * iterate over the given indices in both directions, pushing all tiles found into the list
    */
-  public static double latSouth(            double lat, double distance) {
-    return latNorth(lat, -distance);
+  private static void addTilesCoveringXYRect(int tx_min, int ty_min, int tx_max, int ty_max, int zl, List<String> tiles) {
+    for (int ty_q = ty_min; ty_q <= ty_max; ty_q++) {
+      for (int tx_q = tx_min; tx_q <= tx_max; tx_q++) {
+        String quadstr = tileXYToQuadstr(tx_q, ty_q, zl);
+        // System.err.println(String.format("%-12s | %8d %8d %8d | %8d %8d %8d",
+        //     quadstr, tx_min, tx_q, tx_max, ty_min, ty_q, ty_max));
+        tiles.add(quadstr);
+      }
+    }
   }
-  // longitude not needed for calculation, but provided for symmetry
-  public static double latNorth(double lng, double lat, double distance) {
-    return latNorth(lat, distance);
-  }
-  public static double latSouth(double lng, double lat, double distance) {
-    return latNorth(lat, -distance);
-  }
-  
-  /**
-   * Longitude (WGS-84 degrees) directly west by the given distance from that point
-   */
-  public static double lngWest(double lng, double lat, double distance) {
-    return latNorth(lat, -distance);
-  }
-  
+
   /****************************************************************************
    *
    * Quadkey Methods

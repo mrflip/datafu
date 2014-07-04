@@ -35,16 +35,19 @@ public class FromGeoJson extends SimpleEvalFunc<String>
 
   public String call(String geo_json) throws JSONException {
     try {
-
-      OGCGeometry ogcObj   = OGCGeometry.fromGeoJson(geo_json);
-      
-      String   res      = ogcObj.asGeoJson();
-      log.debug(res);
-      return   res;
+      OGCGeometry geom = OGCGeometry.fromGeoJson(geo_json);
+      if (geom == null){
+        // LogUtils.Log_ArgumentsNull(LOG);
+        return null;
+      }
+      //
+      return GeometryUtils.pigPayload(geom);
     }
     catch (Exception err) {
-      log.error(err.getMessage());
-      throw new RuntimeException("Can't parse input: " + err.getMessage() + " /// " + geo_json, err);
+      String msg = "Can't parse input (" + err.getMessage() + "): " + GeometryUtils.snippetize(geo_json);
+      log.error(msg);
+      GeometryUtils.fuckYouError(msg, err);
+      throw new RuntimeException(msg, err);
     }
   }
 
