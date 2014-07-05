@@ -34,6 +34,128 @@ import datafu.test.pig.PigTests;
 public class EsriTests extends PigTests
 {
 
+
+  /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   *
+   * (geom) -> double UDFs
+   *
+   */
+
+  /**
+  DEFINE Geo%2$-11s       datafu.pig.geo.Geo%2$s(%3$s);
+  data_in     = LOAD 'input' as (feature:chararray);
+  %1$s_out = FOREACH data_in GENERATE Geo%2$s(feature);
+  STORE %1$s_out INTO 'output';
+   */
+  @Multiline
+  private String geoDoubleTest;
+  
+  public void geoDoubleTestHelper(String pr_name, String pr_klass, String ctor_options, String[] expected_output) throws Exception
+  {
+    String script = String.format(geoDoubleTest, pr_name, pr_klass, ctor_options);
+    System.err.println(script);
+    PigTest test = createPigTestFromString(script);
+    this.writeLinesToFile("input", EXAMPLE_FEATURES);
+    test.runScript();
+    assertOutput(test, pr_name+"_out", expected_output);
+  }
+
+  @Test
+  public void geoAreaTest() throws Exception
+  {
+    String[] expected_output = {
+      "(0.0)",
+      "(0.0)",
+      "(50.0)",
+      "(0.0)",
+      "(0.0)",
+      "(1.0)"
+    };
+    geoDoubleTestHelper("area", "Area", "", expected_output);
+  }
+
+  @Test
+  public void geoNumPointsTest() throws Exception
+  {
+    String[] expected_output = {
+      "(1)",
+      "(2)",
+      "(4)",
+      "(4)",
+      "(4)",
+      "(8)",
+    };
+    geoDoubleTestHelper("num_points", "NumPoints", "", expected_output);
+  }
+
+  /**
+  DEFINE FromWKT       datafu.pig.geo.FromWellKnownText();
+  DEFINE GeoMinX       datafu.pig.geo.GeoMinCoord('X');
+  DEFINE GeoMinY       datafu.pig.geo.GeoMinCoord('Y');
+  DEFINE GeoMinZ       datafu.pig.geo.GeoMinCoord('Z');
+  DEFINE GeoMinM       datafu.pig.geo.GeoMinCoord('M');
+  data_in     = LOAD 'input' as (feature:chararray);
+  min_coords_out = FOREACH data_in {
+    -- feature = FromWKT(raw_feature);
+    GENERATE
+      GeoMinX(feature), GeoMinY(feature), GeoMinZ(feature), GeoMinM(feature);
+  }
+  STORE min_coords_out INTO 'output';
+   */
+  @Multiline
+  private String geoMinCoordTest;
+  
+  @Test
+  public void geoMinCoordTest() throws Exception
+  {
+    PigTest test = createPigTestFromString(geoMinCoordTest);
+    this.writeLinesToFile("input", EXAMPLE_FEATURES);
+    test.runScript();
+    String[] expected_output = {
+      "(10.02,10.02,10.02,10.02)",
+      "(10.0,10.0,10.0,10.0)",
+      "(0.0,0.0,0.0,0.0)",
+      "(10.0,10.0,10.0,10.0)",
+      "(2.0,2.0,2.0,2.0)",
+      "(0.0,0.0,0.0,0.0)",
+    };
+    assertOutput(test, "min_coords_out", expected_output);
+  }
+  
+  /**
+  DEFINE FromWKT       datafu.pig.geo.FromWellKnownText();
+  DEFINE GeoMaxX       datafu.pig.geo.GeoMaxCoord('X');
+  DEFINE GeoMaxY       datafu.pig.geo.GeoMaxCoord('Y');
+  DEFINE GeoMaxZ       datafu.pig.geo.GeoMaxCoord('Z');
+  DEFINE GeoMaxM       datafu.pig.geo.GeoMaxCoord('M');
+  data_in     = LOAD 'input' as (feature:chararray);
+  max_coords_out = FOREACH data_in {
+    -- feature = FromWKT(raw_feature);
+    GENERATE
+      GeoMaxX(feature), GeoMaxY(feature), GeoMaxZ(feature), GeoMaxM(feature);
+  }
+  STORE max_coords_out INTO 'output';
+   */
+  @Multiline
+  private String geoMaxCoordTest;
+  
+  @Test
+  public void geoMaxCoordTest() throws Exception
+  {
+    PigTest test = createPigTestFromString(geoMaxCoordTest);
+    this.writeLinesToFile("input", EXAMPLE_FEATURES);
+    test.runScript();
+    String[] expected_output = {
+      "(10.02,10.02,10.02,10.02)",
+      "(20.0,20.0,20.0,20.0)",
+      "(10.0,10.0,10.0,10.0)",
+      "(40.0,40.0,40.0,40.0)",
+      "(20.0,20.0,20.0,20.0)",
+      "(3.0,3.0,3.0,3.0)",
+    };
+    assertOutput(test, "max_coords_out", expected_output);
+  }
+  
   /**
   DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
   DEFINE GeoIntersection datafu.pig.geo.GeoIntersection();
@@ -165,6 +287,7 @@ public class EsriTests extends PigTests
     geoProcessTestHelper("end_point", "EndPoint", "", expected_output);
   }
 
+  
   /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    *
    * SetOperations: (geom, geom) -> geom 
@@ -256,49 +379,10 @@ public class EsriTests extends PigTests
       "(POLYGON ((-126 29.5, -107.7 29.5, -107.7 50, -126 50, -126 29.5)))");
   }
   
-
   //
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   //
   
-  /**
-  DEFINE GeoArea datafu.pig.geo.GeoArea();
-  
-  DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
-  data_in = LOAD 'input' as (geo_json:chararray);
-  data_out = FOREACH data_in {
-    feature = FromGeoJson(geo_json);
-    GENERATE GeoArea(feature);
-  };
-  STORE data_out INTO 'output';
-   */
-  @Multiline
-  private String geoAreaTest;
-  
-  @Test
-  public void geoAreaTest() throws Exception
-  {
-    PigTest test = createPigTestFromString(geoAreaTest);
-    this.writeLinesToFile("input", FEATURES_AS_GEOJSON);
-    test.runScript();
-    assertOutput(test, "data_out",
-      "(0.0)",
-      "(0.0)",
-      "(50.0)",
-      "(0.0)",
-      "(0.0)",
-      "(1.0)");
-    this.writeLinesToFile("input", PARK_CELLS);
-    test.runScript();
-    assertOutput(test, "data_out",
-      "(223.75999999999988)",
-      "(113.77499999999995)",
-      "(297.1850000000001)",
-      "(82.88500000000009)",
-      "(324.47999999999996)",
-      "(330.34)",
-      "(187.57499999999996)");
-  }
   
   /**
   DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
@@ -337,7 +421,6 @@ public class EsriTests extends PigTests
       String res = fgj.call(FEATURES_AS_GEOJSON[ii]);
       Assert.assertEquals(EXAMPLE_FEATURES_OUT[ii], "("+res+")");
     }
-  
   }
   
   /**
@@ -373,7 +456,7 @@ public class EsriTests extends PigTests
   public void toGeoJsonTest() throws Exception
   {
     PigTest test = createPigTestFromString(toGeoJsonTest);
-  
+    //
     this.writeLinesToFile("input", EXAMPLE_FEATURES);
     test.runScript();
     assertOutput(test, "data_out",
@@ -424,7 +507,13 @@ public class EsriTests extends PigTests
     "POLYGON ((0 0, 10 10, 0 10, 0 0))",
     "MULTIPOINT ((10 40), (40 30), (20 20), (30 10))",
     "MULTILINESTRING ((2 4, 10 10), (20 20, 7 8))",
-    "MULTIPOLYGON (((0 0, 1 0, 0 1, 0 0)), ((2 2, 3 2, 2 3, 2 2)))",
+    "MULTIPOLYGON     (((0 0, 1 0, 0 1, 0 0)), ((2 2, 3 2, 2 3, 2 2)))",
+    // "POINT            EMPTY",
+    // "LINESTRING       EMPTY",
+    // "POLYGON          EMPTY",
+    // "MULTIPOINT       EMPTY",
+    // "MULTILINESTRING  EMPTY",
+    // "MULTIPOLYGON EMPTY",
   };
 
 

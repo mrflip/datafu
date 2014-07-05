@@ -58,17 +58,6 @@
 * GeoDifference	    (geom, {bag})
 * GeoUnion	    (geom, {bag})
 
-### Other
-
-* GeoPoint	    (xx,yy)
-* `GeoBBox	    (min_x, min_y, max_x, max_y)` -- envelope object from coords
-* SetSpatialRefId
-* GetSpatialRefID
-* GeoRelatingMatrix (a tuple of the DE-9IM matrix)
-* IsGeoRelating  (takes a DE-9IM relation)
-
-* GeoFlattenMultigeom -- turns a Multi-whatever into a bag of whatevers
-
 ### GeoCompare -- (gA, gB) -> boolean
 
 * IsGeoContains
@@ -109,6 +98,17 @@
 
 * MaxX / MaxY / MaxZ / MaxM
 * MinX / MinY / MinZ / MinM
+
+### Other
+
+* GeoPoint	    (xx,yy)
+* `GeoBBox	    (min_x, min_y, max_x, max_y)` -- envelope object from coords
+* SetSpatialRefId
+* GetSpatialRefID
+* GeoRelatingMatrix (a tuple of the DE-9IM matrix)
+* IsGeoRelating  (takes a DE-9IM relation)
+
+* GeoFlattenMultigeom -- turns a Multi-whatever into a bag of whatevers
 
 
 ### Conversion

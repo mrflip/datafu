@@ -17,7 +17,7 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.geo.GeoProcessorFunc;
+import datafu.pig.util.GeoProcessorFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 

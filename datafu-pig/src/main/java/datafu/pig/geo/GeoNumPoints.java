@@ -17,24 +17,37 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoProcessorFunc;
+import datafu.pig.util.GeoDoubleFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
 import com.esri.core.geometry.MultiPath;
+import com.esri.core.geometry.MultiPoint;
+import com.esri.core.geometry.Polygon;
 
-public class GeoEndPoint extends GeoProcessorFunc {
-  public static String opName() { return "end_point"; }
+public class GeoNumPoints extends GeoDoubleFunc<Integer> {
 
-  public Geometry processGeom(OGCGeometry geom) {
-    if (geom.geometryType().equals("Point") ||
-        geom.geometryType().equals("MultiPoint")) {
-      return null;
+  public Integer processGeom(OGCGeometry geom) {
+    Integer result;
+    Geometry raw_geom = geom.getEsriGeometry();
+    //
+    switch(raw_geom.getType()) {
+    case Point:
+      result = (raw_geom.isEmpty() ? 0 : 1);
+      break;
+    case MultiPoint:
+      result = ((MultiPoint)(raw_geom)).getPointCount();
+      break;
+    case Polygon:
+      Polygon polygon = (Polygon)(raw_geom);
+      result = polygon.getPointCount() + polygon.getPathCount();
+      break;
+    default:
+      result = ((MultiPath)(raw_geom)).getPointCount();
+      break;
     }
-      
-      
-    MultiPath lines = (MultiPath)(geom.getEsriGeometry());
-    Geometry result = (Geometry)lines.getPoint(lines.getPointCount()-1);
+    //
     return result;
   }
+  
 }

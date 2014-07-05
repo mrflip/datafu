@@ -45,6 +45,7 @@ public class FromWellKnownText extends SimpleEvalFunc<String>
     }
     catch (Exception err) {
       String msg = "Can't parse input (" + err.getMessage() + "): " + GeometryUtils.snippetize(wkt);
+      GeometryUtils.fuckYouError(msg, err);
       GeometryUtils.dump(msg);
       throw new RuntimeException(msg, err);
     }

@@ -17,37 +17,16 @@
  */
 package datafu.pig.geo;
 
-import java.io.IOException;
-import org.apache.pig.data.DataType;
-import org.apache.pig.impl.logicalLayer.schema.Schema;
-
-import datafu.pig.util.SimpleEvalFunc;
-
-import datafu.pig.geo.GeometryUtils;
-import com.esri.core.geometry.Envelope;
+import datafu.pig.util.GeoDoubleFunc;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-public class GeoArea extends SimpleEvalFunc<String>
-{
-  public Double call(String payload) {
-    OGCGeometry geom = GeometryUtils.payloadToGeom(payload);
-    if (geom == null){ return null; }
-    try {
-      //
-      Double area = geom.getEsriGeometry().calculateArea2D();
-      //
-      return area;
-    }
-    catch (Exception err) {
-      String msg = "Can't find envelope ("+err.getMessage()+"): "+GeometryUtils.printablePayload(payload);
-      log.error(msg);
-      throw new RuntimeException(msg, err);
-    }
-  }
+public class GeoArea extends GeoDoubleFunc<Double> {
 
-  @Override
-  public Schema outputSchema(Schema input)
-  {
-    return new Schema(new Schema.FieldSchema("area", DataType.DOUBLE));
+  public Double processGeom(OGCGeometry geom) {
+    //
+    Double area = geom.getEsriGeometry().calculateArea2D();
+    //
+    return area;
   }
+  
 }

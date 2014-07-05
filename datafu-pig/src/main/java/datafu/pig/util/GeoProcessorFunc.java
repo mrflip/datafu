@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package datafu.pig.geo;
+package datafu.pig.util;
 
 import java.io.IOException;
 import org.apache.pig.data.DataType;
