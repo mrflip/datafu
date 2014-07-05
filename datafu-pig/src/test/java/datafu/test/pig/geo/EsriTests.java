@@ -35,54 +35,6 @@ public class EsriTests extends PigTests
 {
 
   /**
-  DEFINE GeoPoint datafu.pig.geo.GeoPoint();
-  data_in = LOAD 'input' as (lng:double, lat:double);
-  data_out = FOREACH data_in GENERATE GeoPoint(lng, lat) AS feature;
-  STORE data_out INTO 'output';
-   */
-  @Multiline
-  private String geomPointTest;
-
-  @Test
-  public void geomPointTest() throws Exception
-  {
-    PigTest test = createPigTestFromString(geomPointTest);
-    //
-    this.writeLinesToFile("input", PARK_PTS);
-    test.runScript();
-    assertOutput(test, "data_out", PARK_PTS_OUT);
-  }
-
-  /**
-  DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
-  DEFINE GeoEnvelope datafu.pig.geo.GeoEnvelope();
-  data_in = LOAD 'input' as (geo_json:chararray);
-  data_out = FOREACH data_in {
-    feature = FromGeoJson(geo_json);
-    GENERATE GeoEnvelope(feature);
-  };
-  STORE data_out INTO 'output';
-   */
-  @Multiline
-  private String geoEnvelopeTest;
-
-  @Test
-  public void geoEnvelopeTest() throws Exception
-  {
-    PigTest test = createPigTestFromString(geoEnvelopeTest);
-    this.writeLinesToFile("input", PARK_CELLS);
-    test.runScript();
-    assertOutput(test, "data_out",
-      "(POLYGON ((-84.3 24, -66.4 24, -66.4 48.8, -84.3 48.8, -84.3 24)))",
-      "(POLYGON ((-77.1 29.5, -66 29.5, -66 50, -77.1 50, -77.1 29.5)))",
-      "(POLYGON ((-106 31.2, -80 31.2, -80 50, -106 50, -106 31.2)))",
-      "(POLYGON ((-80.1 24, -66 24, -66 50, -80.1 50, -80.1 24)))",
-      "(POLYGON ((-108.3 24, -80.6 24, -80.6 43.9, -108.3 43.9, -108.3 24)))",
-      "(POLYGON ((-126 24, -104.4 24, -104.4 50, -126 50, -126 24)))",
-      "(POLYGON ((-126 29.5, -107.7 29.5, -107.7 50, -126 50, -126 29.5)))");
-  }
-
-  /**
   DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
   DEFINE GeoIntersection datafu.pig.geo.GeoIntersection();
   data_in = LOAD 'input' as (geo_json:chararray);
@@ -121,46 +73,135 @@ public class EsriTests extends PigTests
 
   /**
   DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
-  DEFINE GeoArea datafu.pig.geo.GeoArea();
+  DEFINE GeoSetOperation datafu.pig.geo.GeoSetOperation('intersection');
   data_in = LOAD 'input' as (geo_json:chararray);
   data_out = FOREACH data_in {
     feature = FromGeoJson(geo_json);
-    GENERATE GeoArea(feature);
+    test_pt     = 'POINT (-100 27)';
+    test_line   = 'LINESTRING (-100 20, -140 29)';
+    test_poly   = 'POLYGON ((-100 20, -90 30, -70 40, -70 20, -100 20))';
+    test_pts     = 'MULTIPOINT ((-100 27),(-126 29.5),(-120 29.5))';
+    GENERATE
+      GeoIntersection(feature, test_pt)   AS feat_and_pt,
+      GeoIntersection(feature, test_line) AS feat_and_line,
+      GeoIntersection(feature, test_poly) AS feat_and_poly,
+      GeoIntersection(feature, test_poly) AS feat_and_pts;
   };
   STORE data_out INTO 'output';
    */
   @Multiline
-  private String geoAreaTest;
+  private String geoSetOperationTest;
 
   @Test
-  public void geoAreaTest() throws Exception
+  public void geoSetOperationTest() throws Exception
   {
-    PigTest test = createPigTestFromString(geoAreaTest);
-    this.writeLinesToFile("input", FEATURES_AS_GEOJSON);
-    test.runScript();
-    assertOutput(test, "data_out",
-      "(0.0)",
-      "(0.0)",
-      "(50.0)",
-      "(0.0)",
-      "(0.0)",
-      "(1.0)");
+    PigTest test = createPigTestFromString(geoSetOperationTest);
     this.writeLinesToFile("input", PARK_CELLS);
     test.runScript();
     assertOutput(test, "data_out",
-      "(223.75999999999988)",
-      "(113.77499999999995)",
-      "(297.1850000000001)",
-      "(82.88500000000009)",
-      "(324.47999999999996)",
-      "(330.34)",
-      "(187.57499999999996)");
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-80.6 24, -70 24, -70 30.516788321167876, -74.10489731437599 37.947551342812005, -83.85290322580644 33.07354838709678, -84.3 31.2, -80.6 24)),POLYGON ((-80.6 24, -70 24, -70 30.516788321167876, -74.10489731437599 37.947551342812005, -83.85290322580644 33.07354838709678, -84.3 31.2, -80.6 24)))",
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-70 36.88738738738739, -70 40, -71.32629558541267 39.33685220729367, -70 36.88738738738739)),POLYGON ((-70 36.88738738738739, -70 40, -71.32629558541267 39.33685220729367, -70 36.88738738738739)))",
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-84.3 31.2, -83.85290322580644 33.07354838709677, -85.75780219780219 32.1210989010989, -84.3 31.2)),POLYGON ((-84.3 31.2, -83.85290322580644 33.07354838709677, -85.75780219780219 32.1210989010989, -84.3 31.2)))",
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-70 30.516788321167876, -70 36.88738738738739, -71.32629558541267 39.33685220729367, -74.10489731437599 37.947551342812005, -70 30.516788321167876)),POLYGON ((-70 30.516788321167876, -70 36.88738738738739, -71.32629558541267 39.33685220729367, -74.10489731437599 37.947551342812005, -70 30.516788321167876)))",
+      "(POINT (-100 27),MULTIPOLYGON EMPTY,POLYGON ((-96.00000000000001 24, -80.6 24, -84.3 31.2, -85.75780219780219 32.121098901098904, -90 30, -96.00000000000001 24)),POLYGON ((-96.00000000000001 24, -80.6 24, -84.3 31.2, -85.75780219780219 32.121098901098904, -90 30, -96.00000000000001 24)))",
+      "(MULTIPOLYGON EMPTY,LINESTRING (-117.77777777777777 24, -126 25.849999999999998),MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY)",
+      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY)");
   }
 
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+  // /**
+  // DEFINE GeoPoint datafu.pig.geo.GeoPoint();
+  // data_in = LOAD 'input' as (lng:double, lat:double);
+  // data_out = FOREACH data_in GENERATE GeoPoint(lng, lat) AS feature;
+  // STORE data_out INTO 'output';
+  //  */
+  // @Multiline
+  // private String geomPointTest;
+  // 
+  // @Test
+  // public void geomPointTest() throws Exception
+  // {
+  //   PigTest test = createPigTestFromString(geomPointTest);
+  //   //
+  //   this.writeLinesToFile("input", PARK_PTS);
+  //   test.runScript();
+  //   assertOutput(test, "data_out", PARK_PTS_OUT);
+  // }
+  // 
   // /**
   // DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
+  // DEFINE GeoEnvelope datafu.pig.geo.GeoEnvelope();
+  // data_in = LOAD 'input' as (geo_json:chararray);
+  // data_out = FOREACH data_in {
+  //   feature = FromGeoJson(geo_json);
+  //   GENERATE GeoEnvelope(feature);
+  // };
+  // STORE data_out INTO 'output';
+  //  */
+  // @Multiline
+  // private String geoEnvelopeTest;
+  // 
+  // @Test
+  // public void geoEnvelopeTest() throws Exception
+  // {
+  //   PigTest test = createPigTestFromString(geoEnvelopeTest);
+  //   this.writeLinesToFile("input", PARK_CELLS);
+  //   test.runScript();
+  //   assertOutput(test, "data_out",
+  //     "(POLYGON ((-84.3 24, -66.4 24, -66.4 48.8, -84.3 48.8, -84.3 24)))",
+  //     "(POLYGON ((-77.1 29.5, -66 29.5, -66 50, -77.1 50, -77.1 29.5)))",
+  //     "(POLYGON ((-106 31.2, -80 31.2, -80 50, -106 50, -106 31.2)))",
+  //     "(POLYGON ((-80.1 24, -66 24, -66 50, -80.1 50, -80.1 24)))",
+  //     "(POLYGON ((-108.3 24, -80.6 24, -80.6 43.9, -108.3 43.9, -108.3 24)))",
+  //     "(POLYGON ((-126 24, -104.4 24, -104.4 50, -126 50, -126 24)))",
+  //     "(POLYGON ((-126 29.5, -107.7 29.5, -107.7 50, -126 50, -126 29.5)))");
+  // }
+  
+  //
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  //
+  
+  // /**
+  // DEFINE GeoArea datafu.pig.geo.GeoArea();
+  // 
+  // DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
+  // data_in = LOAD 'input' as (geo_json:chararray);
+  // data_out = FOREACH data_in {
+  //   feature = FromGeoJson(geo_json);
+  //   GENERATE GeoArea(feature);
+  // };
+  // STORE data_out INTO 'output';
+  //  */
+  // @Multiline
+  // private String geoAreaTest;
+  // 
+  // @Test
+  // public void geoAreaTest() throws Exception
+  // {
+  //   PigTest test = createPigTestFromString(geoAreaTest);
+  //   this.writeLinesToFile("input", FEATURES_AS_GEOJSON);
+  //   test.runScript();
+  //   assertOutput(test, "data_out",
+  //     "(0.0)",
+  //     "(0.0)",
+  //     "(50.0)",
+  //     "(0.0)",
+  //     "(0.0)",
+  //     "(1.0)");
+  //   this.writeLinesToFile("input", PARK_CELLS);
+  //   test.runScript();
+  //   assertOutput(test, "data_out",
+  //     "(223.75999999999988)",
+  //     "(113.77499999999995)",
+  //     "(297.1850000000001)",
+  //     "(82.88500000000009)",
+  //     "(324.47999999999996)",
+  //     "(330.34)",
+  //     "(187.57499999999996)");
+  // }
+  //
+  // /**
+  // DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
+  //
   // data_in = LOAD 'input' as (geo_json:chararray);
   // data_out = FOREACH data_in GENERATE FromGeoJson(geo_json) AS feature;
   // STORE data_out INTO 'output';
@@ -200,6 +241,7 @@ public class EsriTests extends PigTests
   //
   // /**
   // DEFINE FromWellKnownText datafu.pig.geo.FromWellKnownText();
+  //
   // data_in = LOAD 'input' as (val:chararray, wkid:int);
   // data_out = FOREACH data_in GENERATE FromWellKnownText(val, wkid) AS feature;
   // STORE data_out INTO 'output';

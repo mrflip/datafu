@@ -22,16 +22,6 @@ public class GeometryUtils {
     }
   }
 
-  // public static Geometry payloadToBuffer(String payload) {
-  //   OGCGeometry geom = payloadToGeom(payload);
-  //   if (geom == null) {
-  //     // LogUtils.Log_ArgumentsNull(LOG);
-  //     return null;
-  //   }
-  //   Geometry esGeom = geom.getEsriGeometry();
-  //   return esGeom;
-  // }
-
   public static String pigPayload(OGCGeometry geom) {
     try {
       return geom.asText();
