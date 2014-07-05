@@ -21,22 +21,20 @@ import datafu.pig.geo.GeoProcessorFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Point;
+import com.esri.core.geometry.MultiPath;
 
-public class GeoCentroid extends GeoProcessorFunc {
-  public static String opName() { return "centroid"; }
-  
+public class GeoEndPoint extends GeoProcessorFunc {
+  public static String opName() { return "end_point"; }
+
   public Geometry processGeom(OGCGeometry geom) {
-    // Geometry.Type geom_type = geom.getType();
-    // if (! (geom_type.equals(Geometry.Type.Polygon))) { return null; }
-    //
-    Envelope bbox = new Envelope();
-    geom.getEsriGeometry().queryEnvelope(bbox);
-    Point centroid = new Point(
-      (bbox.getXMin() + bbox.getXMax()) / 2.,
-      (bbox.getYMin() + bbox.getYMax()) / 2. );
-    //
-    return (Geometry)centroid;
+    if (geom.geometryType().equals("Point") ||
+        geom.geometryType().equals("MultiPoint")) {
+      return null;
+    }
+      
+      
+    MultiPath lines = (MultiPath)(geom.getEsriGeometry());
+    Geometry result = (Geometry)lines.getPoint(lines.getPointCount()-1);
+    return result;
   }
 }

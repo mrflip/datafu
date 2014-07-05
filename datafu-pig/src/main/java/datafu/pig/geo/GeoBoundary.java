@@ -21,22 +21,16 @@ import datafu.pig.geo.GeoProcessorFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Point;
+public class GeoBoundary extends GeoProcessorFunc {
+  public static String opName() { return "boundary"; }
 
-public class GeoCentroid extends GeoProcessorFunc {
-  public static String opName() { return "centroid"; }
-  
   public Geometry processGeom(OGCGeometry geom) {
-    // Geometry.Type geom_type = geom.getType();
-    // if (! (geom_type.equals(Geometry.Type.Polygon))) { return null; }
     //
-    Envelope bbox = new Envelope();
-    geom.getEsriGeometry().queryEnvelope(bbox);
-    Point centroid = new Point(
-      (bbox.getXMin() + bbox.getXMax()) / 2.,
-      (bbox.getYMin() + bbox.getYMax()) / 2. );
+    OGCGeometry result = geom.boundary();
     //
-    return (Geometry)centroid;
+    // if (boundGeom.geometryType().equals("MultiLineString") && ((OGCMultiLineString)boundGeom).numGeometries() == 1) { boundGeom = ((OGCMultiLineString)boundGeom).geometryN(0); } // match ST_Boundary/SQL-RDBMS
+    //
+    if (result == null) { return null; }
+    return result.getEsriGeometry();
   }
 }

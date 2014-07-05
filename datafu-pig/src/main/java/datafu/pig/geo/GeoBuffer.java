@@ -21,22 +21,25 @@ import datafu.pig.geo.GeoProcessorFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Point;
+import com.esri.core.geometry.Operator;
+import com.esri.core.geometry.OperatorFactoryLocal;
+import com.esri.core.geometry.OperatorBuffer;
 
-public class GeoCentroid extends GeoProcessorFunc {
-  public static String opName() { return "centroid"; }
+public class GeoBuffer extends GeoProcessorFunc {
+  OperatorBuffer operator;
+  double         bufferDistance;
+  public static String opName() { return "buffer"; }
+
+  
+  public GeoBuffer(String options) {
+    this.bufferDistance = Double.parseDouble(options);
+    this.operator = (OperatorBuffer)OperatorFactoryLocal.getInstance()
+      .getOperator(Operator.Type.Buffer);
+  }
   
   public Geometry processGeom(OGCGeometry geom) {
-    // Geometry.Type geom_type = geom.getType();
-    // if (! (geom_type.equals(Geometry.Type.Polygon))) { return null; }
-    //
-    Envelope bbox = new Envelope();
-    geom.getEsriGeometry().queryEnvelope(bbox);
-    Point centroid = new Point(
-      (bbox.getXMin() + bbox.getXMax()) / 2.,
-      (bbox.getYMin() + bbox.getYMax()) / 2. );
-    //
-    return (Geometry)centroid;
+    Geometry result = operator.execute(geom.getEsriGeometry(),
+      geom.getEsriSpatialReference(), bufferDistance, null);
+    return result;
   }
 }

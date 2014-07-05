@@ -23,6 +23,7 @@ public class GeometryUtils {
   }
 
   public static String pigPayload(OGCGeometry geom) {
+    if (geom == null) { return null; }
     try {
       return geom.asText();
     } catch (Exception err) {
@@ -35,6 +36,7 @@ public class GeometryUtils {
   // OGCGeometry.createFromEsriGeometry(env, null))
 
   public static String pigPayload(Geometry esGeom) {
+    if (esGeom == null) { return null; }
     try {
       int wkt_flags = getWktExportFlag(esGeom);
       return GeometryEngine.geometryToWkt(esGeom, wkt_flags);
