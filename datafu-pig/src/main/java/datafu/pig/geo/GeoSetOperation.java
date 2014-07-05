@@ -24,16 +24,26 @@ import org.apache.pig.impl.logicalLayer.schema.Schema;
 import datafu.pig.util.SimpleEvalFunc;
 
 import datafu.pig.geo.GeometryUtils;
-import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
-
-import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.Operator;
-// import com.esri.core.geometry.OperatorIntersection;
-import com.esri.core.geometry.IOperatorAWithB;
 import com.esri.core.geometry.OperatorFactoryLocal;
 
+import com.esri.core.geometry.IOperatorAWithB;
+
+/**
+ * GeoAction  -- (gA, gB) -> geom
+ *
+ * Union		    (gA,gB)
+ * GeoDifference	    (gA,gB)
+ * GeoXor	    (gA,gB)
+ * GeoIntersection   (gA,gB)
+ *
+ * TODO: ...
+ *
+ * GeoClip	    (geom, env)
+ * GeoCut	    (geom, polyline)
+ */
 public class GeoSetOperation extends SimpleEvalFunc<String>
 {
   public IOperatorAWithB  operator;
@@ -70,11 +80,6 @@ public class GeoSetOperation extends SimpleEvalFunc<String>
     if (geom_1 == null || geom_2 == null){ return null; }
     //
     try {
-      // GeometryCursor cursor = this.operator.execute(
-      //   geom_1.getEsriGeometryCursor(), geom_2.getEsriGeometryCursor(),
-      //     geom_1.getEsriSpatialReference(), null, 7);
-      // OGCGeometry result = OGCGeometry.createFromEsriCursor(cursor, geom_1.esriSR, true);
-
       Geometry result = operator.execute(
         geom_1.getEsriGeometry(), geom_2.getEsriGeometry(),
           geom_1.getEsriSpatialReference(), null);

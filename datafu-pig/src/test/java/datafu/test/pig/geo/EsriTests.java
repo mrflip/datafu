@@ -71,43 +71,181 @@ public class EsriTests extends PigTests
       "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY)");
   }
 
+  /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   *
+   * Processor: (geom) -> geom
+   */
+  
   /**
-  DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
-  DEFINE GeoSetOperation datafu.pig.geo.GeoSetOperation('intersection');
-  data_in = LOAD 'input' as (geo_json:chararray);
-  data_out = FOREACH data_in {
-    feature = FromGeoJson(geo_json);
-    test_pt     = 'POINT (-100 27)';
-    test_line   = 'LINESTRING (-100 20, -140 29)';
-    test_poly   = 'POLYGON ((-100 20, -90 30, -70 40, -70 20, -100 20))';
-    test_pts     = 'MULTIPOINT ((-100 27),(-126 29.5),(-120 29.5))';
-    GENERATE
-      GeoIntersection(feature, test_pt)   AS feat_and_pt,
-      GeoIntersection(feature, test_line) AS feat_and_line,
-      GeoIntersection(feature, test_poly) AS feat_and_poly,
-      GeoIntersection(feature, test_poly) AS feat_and_pts;
-  };
-  STORE data_out INTO 'output';
+  DEFINE Geo%2$-11s       datafu.pig.geo.Geo%2$s(%3$s);
+  data_in     = LOAD 'input' as (feature:chararray);
+  %1$s_out = FOREACH data_in GENERATE SUBSTRING(Geo%2$s(feature), 0, 50);
+  STORE %1$s_out INTO 'output';
    */
   @Multiline
-  private String geoSetOperationTest;
-
-  @Test
-  public void geoSetOperationTest() throws Exception
+  private String geoProcessTest;
+  
+  public void geoProcessTestHelper(String pr_name, String pr_klass, String ctor_options, String[] expected_output) throws Exception
   {
-    PigTest test = createPigTestFromString(geoSetOperationTest);
-    this.writeLinesToFile("input", PARK_CELLS);
+    String script = String.format(geoProcessTest, pr_name, pr_klass, ctor_options);
+    System.err.println(script);
+    PigTest test = createPigTestFromString(script);
+    this.writeLinesToFile("input", EXAMPLE_FEATURES);
     test.runScript();
-    assertOutput(test, "data_out",
-      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-80.6 24, -70 24, -70 30.516788321167876, -74.10489731437599 37.947551342812005, -83.85290322580644 33.07354838709678, -84.3 31.2, -80.6 24)),POLYGON ((-80.6 24, -70 24, -70 30.516788321167876, -74.10489731437599 37.947551342812005, -83.85290322580644 33.07354838709678, -84.3 31.2, -80.6 24)))",
-      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-70 36.88738738738739, -70 40, -71.32629558541267 39.33685220729367, -70 36.88738738738739)),POLYGON ((-70 36.88738738738739, -70 40, -71.32629558541267 39.33685220729367, -70 36.88738738738739)))",
-      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-84.3 31.2, -83.85290322580644 33.07354838709677, -85.75780219780219 32.1210989010989, -84.3 31.2)),POLYGON ((-84.3 31.2, -83.85290322580644 33.07354838709677, -85.75780219780219 32.1210989010989, -84.3 31.2)))",
-      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-70 30.516788321167876, -70 36.88738738738739, -71.32629558541267 39.33685220729367, -74.10489731437599 37.947551342812005, -70 30.516788321167876)),POLYGON ((-70 30.516788321167876, -70 36.88738738738739, -71.32629558541267 39.33685220729367, -74.10489731437599 37.947551342812005, -70 30.516788321167876)))",
-      "(POINT (-100 27),MULTIPOLYGON EMPTY,POLYGON ((-96.00000000000001 24, -80.6 24, -84.3 31.2, -85.75780219780219 32.121098901098904, -90 30, -96.00000000000001 24)),POLYGON ((-96.00000000000001 24, -80.6 24, -84.3 31.2, -85.75780219780219 32.121098901098904, -90 30, -96.00000000000001 24)))",
-      "(MULTIPOLYGON EMPTY,LINESTRING (-117.77777777777777 24, -126 25.849999999999998),MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY)",
-      "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY)");
+    assertOutput(test, pr_name+"_out", expected_output);
   }
+  
+  @Test
+  public void geoCentroidTest() throws Exception
+  {
+    String[] expected_output = {
+      "(POINT (10.02 20.01))",
+      "(POINT (15 15))",
+      "(POINT (5 5))",
+      "(POINT (25 25))",
+      "(POINT (11 12))",
+      "(POINT (1.5 1.5))",
+    };
+    geoProcessTestHelper("centroid", "Centroid", "", expected_output);
+  }
+  
+  // /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  //  *
+  //  * Processor: (geom) -> geom
+  //  */
+  // 
+  // /**
+  // DEFINE %2$-14s       datafu.pig.geo.GeoProcessorOld('%1$s'%3$s);
+  // data_in = LOAD 'input' as (feature:chararray);
+  // %1$s_out    = FOREACH data_in GENERATE SUBSTRING(%2$s(feature), 0, 50);
+  // STORE %1$s_out INTO 'output';
+  //  */
+  // @Multiline
+  // private String geoProcessTest;
+  // 
+  // public void geoProcessTestHelper(String pr_name, String pr_klass, String ctor_options, String[] expected_output) throws Exception
+  // {
+  //   String script = String.format(geoProcessTest, pr_name, pr_klass, ctor_options);
+  //   System.err.println(script);
+  //   PigTest test = createPigTestFromString(script);
+  //   this.writeLinesToFile("input", EXAMPLE_FEATURES);
+  //   test.runScript();
+  //   assertOutput(test, pr_name+"_out", expected_output);
+  // }
+  // 
+  // @Test
+  // public void geoBoundaryTest() throws Exception
+  // {
+  //   String[] expected_output = {
+  //     "(MULTIPOINT EMPTY)",
+  //     "(MULTIPOINT ((10 10), (20 20)))",
+  //     "(MULTILINESTRING ((0 0, 10 10, 0 10, 0 0)))",
+  //     "(MULTIPOINT EMPTY)",
+  //     "(MULTIPOINT ((2 4), (10 10), (20 20), (7 8)))",
+  //     "(MULTILINESTRING ((0 0, 1 0, 0 1, 0 0), (2 2, 3 2, )",
+  //   };
+  //   geoProcessTestHelper("boundary", "Boundary", "", expected_output);
+  // }
+  // 
+  // @Test
+  // public void geoBufferTest() throws Exception
+  // {
+  //   String[] expected_output = {
+  //     "(MULTIPOLYGON (((110.02 20.01, 109.80589232386029 2)",
+  //     "(MULTIPOLYGON (((10 -90, 16.54031292301429 -89.7858)",
+  //     "(MULTIPOLYGON (((-100 0, -99.78589232386028 -6.5403)",
+  //     "(MULTIPOLYGON (((30 -90, 36.54031292301429 -89.7858)",
+  //     "(MULTIPOLYGON (((2 -96, 8.540312923014293 -95.78589)",
+  //     "(MULTIPOLYGON (((0 -100, 1 -100, 7.540312923014293 )"
+  //   };
+  //   geoProcessTestHelper("buffer", "Buffer", ", '100'", expected_output);
+  // }
+  // 
+  // @Test
+  // public void geoCentroidTest() throws Exception
+  // {
+  //   String[] expected_output = {
+  //     "(POINT (10.02 20.01))",
+  //     "(POINT (15 15))",
+  //     "(POINT (5 5))",
+  //     "(POINT (25 25))",
+  //     "(POINT (11 12))",
+  //     "(POINT (1.5 1.5))",
+  //   };
+  //   geoProcessTestHelper("centroid", "Centroid", "", expected_output);
+  // }
+  //   
+  // @Test
+  // public void geoConvexHullTest() throws Exception
+  // {
+  //   String[] expected_output = {
+  //     "(POINT (10.02 20.01))",
+  //     "(MULTILINESTRING ((10 10, 20 20)))",
+  //     "(MULTIPOLYGON (((0 0, 10 10, 0 10, 0 0))))",
+  //     "(MULTIPOLYGON (((10 40, 20 20, 30 10, 40 30, 10 40))",
+  //     "(MULTIPOLYGON (((2 4, 10 10, 20 20, 2 4))))",
+  //     "(MULTIPOLYGON (((0 0, 1 0, 3 2, 2 3, 0 1, 0 0))))"
+  //   };
+  //   geoProcessTestHelper("convex_hull", "ConvexHull", "", expected_output);
+  // }
+  // 
+  // @Test
+  // public void geoEndPointTest() throws Exception
+  // {
+  //   String[] expected_output = {
+  //     "(POINT (10.02 20.01))",
+  //     "(MULTILINESTRING ((10 10, 20 20)))",
+  //     "(MULTIPOLYGON (((0 0, 10 10, 0 10, 0 0))))",
+  //     "(MULTIPOLYGON (((10 40, 20 20, 30 10, 40 30, 10 40))",
+  //     "(MULTIPOLYGON (((2 4, 10 10, 20 20, 2 4))))",
+  //     "(MULTIPOLYGON (((0 0, 1 0, 3 2, 2 3, 0 1, 0 0))))"
+  //   };
+  //   geoProcessTestHelper("end_point", "EndPoint", "", expected_output);
+  // }
 
+  // /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  //  *
+  //  * SetOperations: (geom, geom) -> geom 
+  //  */
+  // 
+  // 
+  // /**
+  // DEFINE FromGeoJson datafu.pig.geo.FromGeoJson();
+  // DEFINE GeoSetOperation datafu.pig.geo.GeoSetOperation('intersection');
+  // data_in = LOAD 'input' as (geo_json:chararray);
+  // data_out = FOREACH data_in {
+  //   feature = FromGeoJson(geo_json);
+  //   test_pt     = 'POINT (-100 27)';
+  //   test_line   = 'LINESTRING (-100 20, -140 29)';
+  //   test_poly   = 'POLYGON ((-100 20, -90 30, -70 40, -70 20, -100 20))';
+  //   test_pts     = 'MULTIPOINT ((-100 27),(-126 29.5),(-120 29.5))';
+  //   GENERATE
+  //     GeoIntersection(feature, test_pt)   AS feat_and_pt,
+  //     GeoIntersection(feature, test_line) AS feat_and_line,
+  //     GeoIntersection(feature, test_poly) AS feat_and_poly,
+  //     GeoIntersection(feature, test_poly) AS feat_and_pts;
+  // };
+  // STORE data_out INTO 'output';
+  //  */
+  // @Multiline
+  // private String geoSetOperationTest;
+  // 
+  // @Test
+  // public void geoSetOperationTest() throws Exception
+  // {
+  //   PigTest test = createPigTestFromString(geoSetOperationTest);
+  //   this.writeLinesToFile("input", PARK_CELLS);
+  //   test.runScript();
+  //   assertOutput(test, "data_out",
+  //     "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-80.6 24, -70 24, -70 30.516788321167876, -74.10489731437599 37.947551342812005, -83.85290322580644 33.07354838709678, -84.3 31.2, -80.6 24)),POLYGON ((-80.6 24, -70 24, -70 30.516788321167876, -74.10489731437599 37.947551342812005, -83.85290322580644 33.07354838709678, -84.3 31.2, -80.6 24)))",
+  //     "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-70 36.88738738738739, -70 40, -71.32629558541267 39.33685220729367, -70 36.88738738738739)),POLYGON ((-70 36.88738738738739, -70 40, -71.32629558541267 39.33685220729367, -70 36.88738738738739)))",
+  //     "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-84.3 31.2, -83.85290322580644 33.07354838709677, -85.75780219780219 32.1210989010989, -84.3 31.2)),POLYGON ((-84.3 31.2, -83.85290322580644 33.07354838709677, -85.75780219780219 32.1210989010989, -84.3 31.2)))",
+  //     "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,POLYGON ((-70 30.516788321167876, -70 36.88738738738739, -71.32629558541267 39.33685220729367, -74.10489731437599 37.947551342812005, -70 30.516788321167876)),POLYGON ((-70 30.516788321167876, -70 36.88738738738739, -71.32629558541267 39.33685220729367, -74.10489731437599 37.947551342812005, -70 30.516788321167876)))",
+  //     "(POINT (-100 27),MULTIPOLYGON EMPTY,POLYGON ((-96.00000000000001 24, -80.6 24, -84.3 31.2, -85.75780219780219 32.121098901098904, -90 30, -96.00000000000001 24)),POLYGON ((-96.00000000000001 24, -80.6 24, -84.3 31.2, -85.75780219780219 32.121098901098904, -90 30, -96.00000000000001 24)))",
+  //     "(MULTIPOLYGON EMPTY,LINESTRING (-117.77777777777777 24, -126 25.849999999999998),MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY)",
+  //     "(MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY,MULTIPOLYGON EMPTY)");
+  // }
+  //
   // /**
   // DEFINE GeoPoint datafu.pig.geo.GeoPoint();
   // data_in = LOAD 'input' as (lng:double, lat:double);
@@ -410,3 +548,5 @@ public class EsriTests extends PigTests
   };
 
 }
+
+
