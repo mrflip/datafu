@@ -27,7 +27,7 @@ import com.esri.core.geometry.Envelope;
 public class GeoMaxCoord extends GeoScalarFunc<Double> {
   public MaxHandler handler;
   public String dimension_name;
-  
+
   private enum Dimensions {
     X,
     Y,
@@ -66,7 +66,7 @@ public class GeoMaxCoord extends GeoScalarFunc<Double> {
   interface MaxHandler {
     public Double handle(OGCGeometry geom);
   }
-  
+
   class MaxXHandler implements MaxHandler{
     public Double handle(OGCGeometry geom) {
       Envelope bbox = new Envelope();
@@ -92,7 +92,7 @@ public class GeoMaxCoord extends GeoScalarFunc<Double> {
       return geom.MaxZ();
     }
   }
-  
+
   class MaxMHandler implements MaxHandler {
     public Double handle(OGCGeometry geom) {
       if (! geom.isMeasured()) {

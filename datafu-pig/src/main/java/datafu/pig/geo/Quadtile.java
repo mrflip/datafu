@@ -1,132 +1,281 @@
-// package datafu.pig.geo;
-//
-// import java.util.Iterator;
-// import java.util.ArrayList;
-// import java.util.List;
-//
-// import org.apache.pig.data.Tuple;
-// import org.apache.pig.data.TupleFactory;
-// import org.apache.pig.data.BagFactory;
-// import org.apache.pig.data.DataBag;
-//
-// import com.esri.core.geometry.Geometry;
-// import com.esri.core.geometry.ogc.OGCGeometry;
-//
-// import com.esri.core.geometry.Envelope;
-// import com.esri.core.geometry.Envelope2D;
-// import com.esri.core.geometry.GeometryEngine;
-// import com.esri.core.geometry.Point;
-// import com.esri.core.geometry.QuadTree;
-// import com.esri.core.geometry.QuadTree.QuadTreeIterator;
-// import com.esri.core.geometry.SpatialReference;
-//
-// public class Quadtile {
-//   private final long quadkey;
-//   private final long zl;
-//   private int tile_x = null;
-//   private int tile_y = null;
-//
-//   /* ***************************************************************************
-//    *
-//    * Constructor / Factories
-//    *
-//    */
-//
-//   public Quadtile(String quadstr) {
-//     qk = QuadtileUtils.quadstrToQuadkey(quadstr);
-//     this(qk, quadstr.length());
-//   }
-//
-//   public Quadtile(int tx, int ty, int zl) {
-//     this( QuadtileUtils.tileXYToQuadkey(tx, ty, zl) );
-//     this.tile_x = tx;
-//     this.tile_y = ty;
-//   }
-//
-//   public Quadtile(long qk, int zl) {
-//     this.quadkey = qk;
-//     this.zl      = zl;
-//   }
-//
-//   public static Quadtile quadtileContaining(Geometry geom) {
-//     //   Coordinate nw = new Coordinate(west, north);
-//     //   Coordinate ne = new Coordinate(east, north);
-//     //   Coordinate sw = new Coordinate(west, south);
-//     //   Coordinate se = new Coordinate(east, south);
-//     //   Coordinate[] bboxCoordinates = {nw, ne, se, sw, nw};
-//     //   LinearRing bboxRing  = geomFactory.createLinearRing(bboxCoordinates);
-//     //   Polygon    bbox_poly = geomFactory.createPolygon(bboxRing, null);
-//     //   return     bbox_poly;
-//     // }
-//   }
-//
-//   public static Quadtile quadtileContaining(double west, double south, double east, double north) {
-//
-//   }
-//
-//   public static Quadtile quadtileContaining(double lng, double lat) {
-//
-//   }
-//
-//
-    // For things that cover the poles, we can either clip the circle, or find
-    // the "north" lat (on the other side of the pole) and have the longitude
-    // sweep -180 to 180. The latter can blow up Finland -- a large-enough
-    // circle to hit the poles will sweep south enough that we end up tiling
-    // most of the hemisphere. Clipping (the current behavior) means we lose
-    // results that might extend on the other side. But anyone willing to use
-    // the Mercator projection has already sacrificed Santa Claus to the
-    // purposes of convenience, I'd rather have Hammerfest miss the Yukon than
-    // blow up Reykjavik. But remember, this is undefined behavior, so you must
-    // not count on it remaining the same.
+package datafu.pig.geo;
+
+import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.pig.data.Tuple;
+import org.apache.pig.data.TupleFactory;
+import org.apache.pig.data.BagFactory;
+import org.apache.pig.data.DataBag;
+
+import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.GeometryEngine;
+import com.esri.core.geometry.WktExportFlags;
+import com.esri.core.geometry.ogc.OGCGeometry;
+
+import com.esri.core.geometry.Envelope;
+import com.esri.core.geometry.Envelope2D;
+import com.esri.core.geometry.GeometryEngine;
+import com.esri.core.geometry.Point;
+
+public class Quadtile {
+  private final long qk;
+  private final int  zl;
+  private final int  tx;
+  private final int  ty;
+  //
+  private Envelope envelope;
+  private Geometry fragment;
+
+  /* ***************************************************************************
+   *
+   * Constructor / Factories
+   *
+   */
+
+  public Quadtile(long quadkey, int zoomlvl) {
+    this.qk = quadkey;
+    this.zl = zoomlvl;
+    int[] tile_xy = QuadkeyUtils.quadkeyToTileXY(quadkey);
+    this.tx = tile_xy[0];
+    this.ty = tile_xy[1];
+  }
+
+  public Quadtile(int tile_x, int tile_y, int zoomlvl) {
+    this.tx = tile_x;
+    this.ty = tile_y;
+    this.zl = zoomlvl;
+    this.qk = QuadkeyUtils.tileXYToQuadkey(tx, ty);
+  }
+
+  public Quadtile(String quadstr) {
+    this(QuadkeyUtils.quadstrToQuadkey(quadstr), QuadkeyUtils.quadstrToZl(quadstr));
+  }
+
+  /**
+   *
+   * Smallest quadtile (i.e. most fine-grained zoom level) containing the given object.
+   *
+   * Be aware that shapes which wrap around the edge of the map by any amount -- Kiribati
+   * and American Samoa sure, but also Russia and Alaska -- will end up at zoom level
+   * zero. Yikes.
+   *
+   */
+  public static Quadtile quadtileContaining(Geometry geom, int zoomlvl) {
+    Envelope env = new Envelope();
+    geom.queryEnvelope(env);
+    long qk_lfup = QuadkeyUtils.mercatorToQuadkey(env.getXMin(), env.getYMax(), zoomlvl);
+    long qk_rtdn = QuadkeyUtils.mercatorToQuadkey(env.getXMax(), env.getYMin(), zoomlvl);
+    long[] qk_zl = QuadkeyUtils.smallestContaining(qk_lfup, qk_rtdn, zoomlvl);
+    Quadtile quadtile = new Quadtile(qk_zl[0], (int)qk_zl[1]);
+
+    String geom_str = GeometryEngine.geometryToWkt(env, WktExportFlags.wktExportDefaults);
+
+    GeometryUtils.dump("%d %d %s %s %d %d | %s | %s", qk_lfup, qk_rtdn,
+      QuadkeyUtils.quadkeyToQuadstr(qk_lfup, zoomlvl), QuadkeyUtils.quadkeyToQuadstr(qk_rtdn, zoomlvl),
+      qk_zl[0], qk_zl[1], quadtile, geom_str);
+    return quadtile;
+  }
+
+  public static Quadtile quadtileContaining(Geometry geom) {
+    return quadtileContaining(geom, QuadkeyUtils.MAX_ZOOM_LEVEL);
+  }
+
+  public static Quadtile quadtileContaining(double lng, double lat, int zoomlvl) {
+    long quadkey = QuadkeyUtils.mercatorToQuadkey(lng, lat, zoomlvl);
+    return new Quadtile(quadkey, zoomlvl);
+  }
+
+  public static Quadtile quadtileContaining(double lng, double lat) {
+    return quadtileContaining(lng, lat, QuadkeyUtils.MAX_ZOOM_LEVEL);
+  }
+
+  public static Quadtile quadtileContaining(double lf, double dn, double rt, double up, int zoomlvl) {
+    long qk_lfup = QuadkeyUtils.mercatorToQuadkey(lf, up, zoomlvl);
+    long qk_rtdn = QuadkeyUtils.mercatorToQuadkey(rt, dn, zoomlvl);
+    long[] qk_zl = QuadkeyUtils.smallestContaining(qk_lfup, qk_rtdn, zoomlvl);
+    Quadtile quadtile = new Quadtile(qk_zl[0], (int)qk_zl[1]);
     //
-    // north_lat = NumberUtils.snap(north_lat, MIN_MERC_LAT, MAX_MERC_LAT);
-    // south_lat = NumberUtils.snap(south_lat, MIN_MERC_LAT, MAX_MERC_LAT);
-//       // #
-//       // # Bounding box coordinates
-//       // #
-//       //
-//       // # Convert a quadkey into a bounding box using adjacent tile
-//       // def quadkey_to_bbox(quadkey)
-//       //   tile_x, tile_y, zl = quadkey_to_tile_xy_zl(quadkey)
-//       //   # bottom right of me is top left of my southeast neighbor
-//       //   left,  top = tile_xy_zl_to_lng_lat(tile_x,     tile_y,     zl)
-//       //   right, btm = tile_xy_zl_to_lng_lat(tile_x + 1, tile_y + 1, zl)
-//       //   [left, btm, right, top]
-//       // end
-//       //
-//       // # Retuns the smallest quadkey containing both of corners of the given bounding box
-//       // def quadkey_containing_bbox(left, btm, right, top)
-//       //   qk_tl = lng_lat_zl_to_quadkey(left,  top, 23)
-//       //   qk_2  = lng_lat_zl_to_quadkey(right, btm, 23)
-//       //   # the containing qk is the longest one that both agree on
-//       //   containing_key = ""
-//       //   qk_tl.chars.zip(qk_2.chars).each do |char_tl, char_2|
-//       //     break if char_tl != char_2
-//       //     containing_key << char_tl
-//       //   end
-//       //   containing_key
-//       // end
-//       //
-//       // # Returns a bounding box containing the circle created by the lat/lng and radius
-//       // def lng_lat_rad_to_bbox(longitude, latitude, radius)
-//       //   left, _    = point_east( longitude, latitude, -radius)
-//       //   _,     btm = point_north(longitude, latitude, -radius)
-//       //   right, _   = point_east( longitude, latitude,  radius)
-//       //   _,     top = point_north(longitude, latitude,  radius)
-//       //   [left, btm, right, top]
-//       // end
+    return quadtile;
+  }
+
+  public static Quadtile quadtileContaining(double lf, double dn, double rt, double up) {
+    return quadtileContaining(lf, dn, rt, up, QuadkeyUtils.MAX_ZOOM_LEVEL);
+  }
+
+  public Envelope getEnvelope() {
+    if (envelope != null) { return envelope; } // memoize
+    double[] coords = w_s_e_n();
+    this.envelope = new Envelope(coords[0], coords[1] + 1e-6, coords[2] - 1e-6, coords[3]);
+    // this.envelope = new Envelope(tile_x, tile_y, tile_x+1, tile_y+1);
+    return envelope;
+  }
+
+  public double[] w_s_e_n() {
+    return QuadkeyUtils.tileXYToCoords(tx, ty, zl);
+  }
+
+  public String quadstr() { return QuadkeyUtils.quadkeyToQuadstr(qk, zl); }
+  public long   quadkey() { return qk; }
+  public int    zoomlvl() { return zl; }
+  public int    tileX()   { return tx; }
+  public int    tileY()   { return ty; }
+  public int[]  tileXY()  { int[] tile_xy  = { tx, ty } ;     return tile_xy;  }
+  public int[]  tileXYZ() { int[] tile_xyz = { tx, ty, zl } ; return tile_xyz; }
+
+  public String toString() {
+    double[] coords = w_s_e_n();
+    return String.format("%s %-10s@%2d [%4d %4d] (%6.1f %5.1f %6.1f %5.1f)",
+      // this.getClass().getSimpleName(), // TODO: probably should be class, but screen space
+      "QT", quadstr(), zl, tx, ty, coords[0], coords[1], coords[2], coords[3]);
+  }
+
+
+  /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   *
+   * Related Quadtiles
+   *
+   */
+
+  public Quadtile[] children() {
+    Long[]      child_qks   = QuadkeyUtils.quadkeyChildren(qk);
+    int         child_zl    = this.zl + 1;
+    Quadtile[]  child_tiles = {null, null, null, null};
+    for (int ci = 0; ci < child_qks.length; ci++) {
+      child_tiles[ci] = new Quadtile(child_qks[ci], child_zl);
+    }
+    return child_tiles;
+  }
+
+  /**
+   * Quadtile at the given zoom level containing this quadtile.
+   *
+   * @param zl_anc    Zoom level of detail for the ancestor. Must not be finer than the tile's zoomlvl
+   * @return quadtile at the given zoom level and which contains or equals this one.
+   */
+  public Quadtile ancestor(int zl_anc) {
+    long qk_anc = QuadkeyUtils.quadkeyAncestor(qk, zl, zl_anc);
+    return new Quadtile(qk_anc, zl_anc);
+  }
+
+
+  /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   *
+   * Decompose Shape
+   *
+   */
+
+  /**
+   *
+   * List of all quadtiles at the given zoom level that intersect the object. The object
+   * will lie completely within the union of the returned tiles; and every returned tile
+   * intersects with the object.
+   *
+   */
+  public static List<Quadtile> quadtilesCovering(Geometry esGeom, int zl_coarse, int zl_fine) {
+    Quadtile start_quad = quadtileContaining(esGeom, zl_fine);
+    return start_quad.decompose(esGeom, zl_coarse, zl_fine);
+  }
+  public static List<Quadtile> quadtilesCovering(OGCGeometry geom, int zl_coarse, int zl_fine) {
+    return quadtilesCovering(geom.getEsriGeometry(), zl_coarse, zl_fine);
+  }
+
+  public List<Quadtile> decompose(Geometry geom, int zl_coarse, int zl_fine) {
+    List<Quadtile> quads = new ArrayList<Quadtile>();
+    dump("%-20s |  %s", "start", geom);
+    addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
+    return quads;
+  }
+
+  public void dump(String fmt, Object... args) {
+    fmt = String.format("******\t%30s| %s", this.toString(), fmt);
+    System.err.println(String.format(fmt, args));
+  }
+
+  // make this be a bag of (quadkey, quadtile, clipped geom) objects
+  protected void addDescendantsIntersecting_(List<Quadtile> quads, Geometry geom, int zl_coarse, int zl_fine) {
+    // intersect the object with our envelope
+    Geometry geom_on_tile = GeometryEngine.intersect(geom, getEnvelope(), null);
+
+    dump("%-20s %2d->%2d %3d %18s %s %s", "Decomposing", zl_coarse, zl_fine, quads.size(), geom,
+      // envelope, geom_on_tile
+      envelope, "");
+
+    if (geom_on_tile.isEmpty()) {
+      // intersection is empty: add nothing to the list and return.
+      dump("%-20s %2d->%2d %3d %s", "No intersection", zl_coarse, zl_fine, quads.size(), geom_on_tile);
+      return;
+      //
+    } else if (this.zl  > zl_fine) {
+      // zl finer than limit: zoom out to zl, add to list, return
+      // dump("%-20s %2d->%2d %3d", "zl finer than limit", zl_coarse, zl_fine, quads.size());
+      quads.add(ancestor(zl_fine));
+      //
+    } else if (this.zl == zl_fine) {
+      // zl at finest limit: add self
+      // dump("%-20s %2d->%2d %3d", "zl meets finest limit", zl_coarse, zl_fine, quads.size());
+      quads.add(this);
+      //
+    } else if ((this.zl >= zl_coarse) && GeometryEngine.within(getEnvelope(), geom, null)) {
+      // completely within object: add self, return
+      dump("%-20s %2d->%2d %3d %s contains %s", "contained in shape", zl_coarse, zl_fine, quads.size(), geom_on_tile, getEnvelope());
+      quads.add(this);
+      //
+    } else {
+      // otherwise, decompose, add those tiles.
+      dump("%-20s %2d->%2d %3d %s", "recursing", zl_coarse, zl_fine, quads.size(), geom_on_tile);
+      Quadtile[] child_tiles = children();
+      child_tiles[0].addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
+      child_tiles[1].addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
+      child_tiles[2].addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
+      child_tiles[3].addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
+    }
+  }
+
+}
+
+
 //
-//       // # Convert latitude in degrees to integer tile x,y coordinates at given
-//       // # zoom level.  Assigns points outside the tile coverage to "0000..."
-//       // # (north) and "33333..." (south) rather than raising an error.
-//       // def point_to_quadkey_withpoles(longitude, latitude)
-//       //   if    (MAX_LATITUDE ..  90.0).include?(latitude) then return ("0"*POINT_ZL)
-//       //   elsif (-90.0 .. MIN_LATITUDE).include?(latitude) then return ("3"*POINT_ZL) end
-//       //   lng_lat_zl_to_quadkey(longitude, latitude, POINT_ZL)
-//       // end
+//   public static List<String> childrenContaining(Geometry geom, String parent) {
+//     List<String> children = childrenFor(parent);
+//     List<String> returnChildren = new ArrayList<String>();
+//     for (String child : children) {
+//       Polygon quadstrBox = quadstrToBox(child);
+//       if (quadstrBox.intersects(g)) {
+//         returnChildren.add(child);
+//       }
+//     }
+//     return returnChildren;
+//   }
 //
 //
+//   /**
+//      Recursively search through quadstr for overlapping with the passed in geometry.
+//   */
+//   public static boolean checkQuadstr(String quadstr, DataBag returnKeys, Geometry g, int maxDepth) {
+//     // Compute bounding box for the tile
+//     Polygon keyBox = quadstrToBox(quadstr);
+//     if (returnKeys.size() > MAX_TILES) return false;
+//
+//     if (keyBox.intersects(g)) {
+//       if (quadstr.length() >= maxDepth ) {
+//         Tuple quadstrTuple = tupleFactory.newTuple(quadstr);
+//         returnKeys.add(quadstrTuple);
+//         return true;
+//       }
+//       List<String> children = childrenFor(quadstr);
+//
+//       Geometry cut = g.intersection(keyBox);
+//       cut = (cut.getGeometryType().equals(GEOM_COLLEC) ? cut.getEnvelope() : cut );
+//
+//       for (String child : children) {
+//         checkQuadstr(child, returnKeys, cut, maxDepth);
+//       }
+//     }
+//     return true;
+//   }
+
 //   /* ***************************************************************************
 //    *
 //    * Geometry Methods
@@ -170,45 +319,6 @@
 //       if (quadstrBox.contains(g)) return quadstr;
 //     }
 //     return "";
-//   }
-//
-//   public static List<String> childrenContaining(Geometry geom, String parent) {
-//     List<String> children = childrenFor(parent);
-//     List<String> returnChildren = new ArrayList<String>();
-//     for (String child : children) {
-//       Polygon quadstrBox = quadstrToBox(child);
-//       if (quadstrBox.intersects(g)) {
-//         returnChildren.add(child);
-//       }
-//     }
-//     return returnChildren;
-//   }
-//
-//
-//   /**
-//      Recursively search through quadstr for overlapping with the passed in geometry.
-//   */
-//   public static boolean checkQuadstr(String quadstr, DataBag returnKeys, Geometry g, int maxDepth) {
-//     // Compute bounding box for the tile
-//     Polygon keyBox = quadstrToBox(quadstr);
-//     if (returnKeys.size() > MAX_TILES) return false;
-//
-//     if (keyBox.intersects(g)) {
-//       if (quadstr.length() >= maxDepth ) {
-//         Tuple quadstrTuple = tupleFactory.newTuple(quadstr);
-//         returnKeys.add(quadstrTuple);
-//         return true;
-//       }
-//       List<String> children = childrenFor(quadstr);
-//
-//       Geometry cut = g.intersection(keyBox);
-//       cut = (cut.getGeometryType().equals(GEOM_COLLEC) ? cut.getEnvelope() : cut );
-//
-//       for (String child : children) {
-//         checkQuadstr(child, returnKeys, cut, maxDepth);
-//       }
-//     }
-//     return true;
 //   }
 //
 //   /* ***************************************************************************
@@ -257,119 +367,3 @@
 //     }
 //     return returnKeys;
 //   }
-
-
-  // /**
-  //  * Latitude (WGS-84 degrees) directly north by the given distance from that point
-  //  *
-  //  * Note that the result is <em>capped at the poles</em> -- walking north from
-  //  * 88 deg latitude by the distance equivalent of 10 degrees does not carry
-  //  * through to 82 degrees, but stops at the pole.
-  //  */
-  // public static double latNorth(double lat, double distance) {
-  //   // This would give you the 'wrapped' version. There's probably something smarter than taking arcsin(sin(x)).
-  //   // double north_lat = Math.toDegrees( Math.asin(Math.sin(lat_rad + dist_rad)) );
-  //   // System.err.println(String.format("%10s %10.5f %12.0f %10.5f %10.5f", "", lat, distance, north_lat, Math.toDegrees(Math.asin(Math.sin(lat_rad + dist_rad)))));
-  //   //
-  //   double dist_rad   = distance / GLOBE_RADIUS;
-  //   double lat_rad    = Math.toRadians(lat);
-  //   return NumberUtils.snap(Math.toDegrees(lat_rad + dist_rad), -90.0, 90.0);
-  // }
-  //
-  // /**
-  //  * Latitude (WGS-84 degrees) directly south by the given distance from that point
-  //  */
-  // public static double latSouth(            double lat, double distance) {
-  //   return latNorth(lat, -distance);
-  // }
-  // // longitude not needed for calculation, but provided for symmetry
-  // public static double latNorth(double lng, double lat, double distance) {
-  //   return latNorth(lat, distance);
-  // }
-  // public static double latSouth(double lng, double lat, double distance) {
-  //   return latNorth(lat, -distance);
-  // }
-  //
-  // /**
-  //  * Longitude (WGS-84 degrees) directly east by the given distance from that point
-  //  */
-  // public static double lngEast(double lng, double lat, double distance) {
-  //   //
-  //   double lng_rad = Math.toRadians(lng) + (distance/radiusOfLatitude(lat));
-  //   lng_rad = ((lng_rad + Math.PI) % NumberUtils.PI_X2) + Math.PI;
-  //   return Math.toDegrees(lng_rad);
-  // }
-  //
-  // /**
-  //  * Radius for the Parallel of Latitude at the given latitude in degrees.  This
-  //  * is the radius of the circle of constant latitude in a spherical-earth
-  //  * model.
-  //  */
-  // public static double radiusOfLatitude(double lat) {
-  //   return GLOBE_RADIUS * Math.cos(Math.toRadians(lat));
-  // }
-
-
-  // // Size of one tile == S = GLOBE_CIRCUM * cos(ty) / 2^zl
-
-/*
- *
- * Discarded code to cull tiles from a circle. Turns out there's not enough to discard to be worth it.
- *
- */
-
-
-
-  // /**
-  //  *
-  //  * @param lat1     The y coordinate of the first point, in radians
-  //  * @param lng1     The x coordinate of the first point, in radians
-  //  * @param lat2     The y coordinate of the second point, in radians
-  //  * @param lng2     The x coordinate of the second point, in radians
-  //  * @return The distance between the two points, as determined by the Haversine formula, in radians.
-  //  *
-  //  * From Spatial4j -- http://grepcode.com/file_/repo1.maven.org/maven2/com.spatial4j/spatial4j/0.2/com/spatial4j/core/distance/DistanceUtils.java/?v=source
-  //  */
-  // public static double haversineDistRad(double lng1, double lat1, double lng2, double lat2) {
-  //   if (lat1 == lat2 && lng1 == lng2) { return 0.0; }
-  //   //
-  //   double hsinX = Math.sin((lng1 - lng2) * 0.5);
-  //   double hsinY = Math.sin((lat1 - lat2) * 0.5);
-  //   double h = hsinY * hsinY +
-  //           (Math.cos(lat1) * Math.cos(lat2) * hsinX * hsinX);
-  //   return 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-  // }
-    //
-    // Iterate across the tiles; add ones which poke into our circle
-    //
-    // For latitude:
-    //   above => tile south, below => tile north, same => point's latitude
-    // For longitude:
-    //   left => tile east;   right => tile west; same row, use point's latitude
-    //
-    // double test_lat_rad, test_lng_rad;
-      // if        (ty_q < txy_pt[1]) { test_lat_rad = NumberUtils.PI_D2 - 2*Math.atan( Math.exp( (ty_q+1)*NumberUtils.PI_X2/mapsize - Math.PI) ); }
-      // else if   (ty_q > txy_pt[1]) { test_lat_rad = NumberUtils.PI_D2 - 2*Math.atan( Math.exp( (ty_q  )*NumberUtils.PI_X2/mapsize - Math.PI) ); }
-      // else                         { test_lat_rad = lat_rad; }
-      //   if      (tx_q < txy_pt[0]) { test_lng_rad = NumberUtils.PI_X2 * (tx_q+1) / mapsize - Math.PI; }
-      //   else if (tx_q > txy_pt[0]) { test_lng_rad = NumberUtils.PI_X2 * (tx_q  ) / mapsize - Math.PI; }
-      //   else                       { test_lng_rad = lng_rad; }
-
-        // if (haversineDistRad(test_lng_rad, test_lat_rad, lng_rad, lat_rad) <= dist_rad) {
-  // System.err.println(String.format("%s\t%-12s %8d %8d %8d %8d | %10.5f %10.5f | %10.5f %10.5f %10.5f %10.5f",
-  //     ""+added, quadstr, tx_q, ty_q, txy_pt[0], txy_pt[1], lng_rad, lat_rad, lng, lat));
-  // double tile_width = Math.toRadians(lng) + (distance/radiusOfLatitude(lat));
-  //
-  // // Get the tile's minimum width in meters -- top of the box north of the
-  // // equator, bottom of the box south of the equator.
-  //
-  // int    mapsize    = mapTileSize(zl);
-  //
-  // double par_radius = GLOBE_RADIUS * Math.cos(t_lat_rad);
-  //
-  // // Get the distance to the nearest edge of the tile
-  //
-  // double edge_rad_dist = t_lat_rad - lat_rad;
-  //
-  // Find the remaining distance to
-  //

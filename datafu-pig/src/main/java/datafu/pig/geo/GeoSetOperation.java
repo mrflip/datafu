@@ -65,15 +65,15 @@ public class GeoSetOperation extends SimpleEvalFunc<String>
     super();
     this.op_name = operation_name;
     this.op_type = SetOperationType.valueOf(op_name.toUpperCase());
-    
+
     switch (op_type){
-    case INTERSECTION: 
+    case INTERSECTION:
       this.operator = (IOperatorAWithB)OperatorFactoryLocal.getInstance()
         .getOperator(Operator.Type.Intersection);
     default:
     }
   }
-    
+
   public String call(String payload_1, String payload_2) {
     OGCGeometry geom_1 = GeometryUtils.payloadToGeom(payload_1);
     OGCGeometry geom_2 = GeometryUtils.payloadToGeom(payload_2);

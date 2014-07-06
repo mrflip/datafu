@@ -2,9 +2,9 @@ package datafu.pig.geo;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import org.apache.commons.logging.Log;
-    
+
 public class LogUtils {
-	
+
 	private static final int MSG_SRID_MISMATCH = 0;
 	private static final int MSG_ARGUMENTS_NULL = 1;
 	private static final int MSG_ARGUMENT_LENGTH_XY = 2;
@@ -17,7 +17,7 @@ public class LogUtils {
 	private static final int MSG_EXCEPTION_THROWN = 9;
 	private static final int MSG_NOT_3D = 10;
 	private static final int MSG_NOT_MEASURED = 11;
-	
+
 	private static String [] messages = {
 		"Mismatched spatial references ('%d' <> '%d')",
 		"Invalid arguments - one or more arguments are null.",
@@ -32,10 +32,10 @@ public class LogUtils {
 		"Invalid argument - not 3D",
 		"Invalid argument - not measured"
 	};
-	
+
 	/**
 	 * Log when comparing geometries in different spatial references
-	 * 
+	 *
 	 * @param logger
 	 * @param geomref1
 	 * @param geomref2
@@ -46,7 +46,7 @@ public class LogUtils {
 	// public static void Log_SRIDMismatch(Log logger, BytesWritable geomref1, int wkid2){
 	// 	logger.error(String.format(messages[MSG_SRID_MISMATCH], , wkid2));
 	// }
-	
+
 	/**
 	 * Log when arguments passed to evaluate are null
 	 * @param logger
@@ -54,11 +54,11 @@ public class LogUtils {
 	public static void Log_ArgumentsNull(Log logger){
 		logger.error(messages[MSG_ARGUMENTS_NULL]);
 	}
-	
+
 	public static void Log_VariableArgumentLengthXY(Log logger){
 		logger.error(messages[MSG_ARGUMENT_LENGTH_XY]);
 	}
-	
+
 	public static void Log_VariableArgumentLengthXY(Log logger, int array_argument_index){
 		logger.error(String.format(messages[MSG_MULTI_ARGUMENT_LENGTH_XY], array_argument_index));
 	}

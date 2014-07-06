@@ -49,5 +49,5 @@ public class GeoNumPoints extends GeoScalarFunc<Integer> {
     //
     return result;
   }
-  
+
 }

@@ -140,7 +140,7 @@
     Geometry          execute(Geometry          inputGeom1,        Geometry                  geom2, SpatialReference sr, progtr);
     Geometry          execute(Geometry          leftGeometry,      Geometry                  rightGeometry, SpatialReference sr, progtr);
     Geometry          execute(Geometry          inputGeometry,     Envelope2D                envelope, SpatialReference spatialRef, progtr);
-    
+
     double            execute(Geometry          inputGeometry,     SpatialReference          sr, int geodeticCurveType, progtr);
     double            execute(Geometry          inputGeometry,     SpatialReference          sr, int geodeticCurveType, progtr);
     double[]          execute(GeometryCursor    geoms,             SpatialReference          sr, int geodeticCurveType, progtr);
@@ -158,7 +158,7 @@
 
     Geometry          execute(Geometry          inputGeometry,     double                    maxDeviation, boolean bRemoveDegenerateParts, progtr);
     Geometry          execute(Geometry          inputGeometry,     double                    maxLength, progtr);
-    
+
     ByteBuffer        execute(int               exportFlags,       Geometry                  geometry);
     ByteBuffer        execute(int               exportFlags,       Geometry                  geometry, progtr);
     ByteBufferCursor  execute(int               exportFlags,       GeometryCursor            geometryCursor);
@@ -176,12 +176,12 @@
     GeometryCursor    execute(GeometryCursor    inputGeoms,        SpatialReference          sr, double[] distances, boolean bUnion, progtr);
     GeometryCursor    execute(GeometryCursor    inputGeoms,        double                    maxLength, progtr);
     GeometryCursor    execute(GeometryCursor    inputGeoms,        ProjectionTransformation  projection, progtr);
-    
+
     GeometryCursor    execute(boolean           bConsiderTouch,    Geometry                  cuttee, Polyline cutter, SpatialReference spatialReference, progtr);
     GeometryCursor    execute(int               importFlags,       Geometry.Type             type, ByteBufferCursor shapeBuffers);
     MapGeometry       execute(int               import_flags,      Geometry.Type             type, String geoJsonString, progtr
     MapGeometryCursor execute(Geometry.Type     type,              JsonParserCursor          jsonParserCursor);
-    String            execute(Geometry          geometry);         
+    String            execute(Geometry          geometry);
     String            execute(SpatialReference  spatialReference,  Geometry                  geometry);
     String            execute(SpatialReference  spatialReference,  Geometry                  geometry);
     String            execute(SpatialReference  spatialReference,  Geometry                  geometry, Map<String, Object> exportProperties);

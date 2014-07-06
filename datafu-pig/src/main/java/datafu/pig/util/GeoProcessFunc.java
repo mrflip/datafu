@@ -68,11 +68,11 @@ public abstract class GeoProcessFunc extends SimpleEvalFunc<String>
 
 // import com.esri.core.geometry.Operator;
 // import com.esri.core.geometry.OperatorFactoryLocal;
-  
+
 // import com.esri.core.geometry.Envelope;
 // import com.esri.core.geometry.Point;
 // import com.esri.core.geometry.MultiPath;
-// 
+//
 // import com.esri.core.geometry.OperatorBoundary;
 // import com.esri.core.geometry.OperatorConvexHull;
 // // import com.esri.core.geometry.OperatorDensify;

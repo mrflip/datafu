@@ -95,7 +95,6 @@ public class GeometryUtils {
 
 
   public static void dump(String fmt, Object... args) {
-    System.err.println("*******");
-    System.err.println(String.format(fmt, args));
+    System.err.println(String.format("******\t"+fmt, args));
   }
 }

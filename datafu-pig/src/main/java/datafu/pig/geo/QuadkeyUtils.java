@@ -101,7 +101,7 @@ public final class QuadkeyUtils {
   public static final double GLOBE_RADIUS    = 6378137.0;
   public static final double GLOBE_CIRCUM    = GLOBE_RADIUS * 2.0 * Math.PI;
 
-  public static final int   MAX_ZOOM_LEVEL   = 31;
+  public static final int   MAX_ZOOM_LEVEL   = 30;
   public static final int   TILE_PIXEL_SIZE  = 256;
 
   // The arctan/log/tan/sinh business gives slight loss of precision. We could
@@ -122,6 +122,13 @@ public final class QuadkeyUtils {
   /****************************************************************************
    *
    * Longitude/Latitude/ZL Methods
+   *
+   */
+
+  /*
+   *
+   * TODO: separate the projection code from the tile code. This should just all
+   * live in tile x/y land only.
    *
    */
 
@@ -227,7 +234,7 @@ public final class QuadkeyUtils {
     double[] rt_dn = tileXYToMercator(tx+1, ty+1, zl);
 
     // [left, bottom, right, top]​ -- [min_x, min_y, max_x, max_y]
-    double[] result = { lf_up[0], rt_dn[1], rt_dn[0], lf_up[1] };
+    double[] result = { lf_up[0], rt_dn[1]+EDGE_FUDGE, rt_dn[0]-EDGE_FUDGE, lf_up[1] };
     return result;
   }
 
@@ -243,6 +250,9 @@ public final class QuadkeyUtils {
   public static long mercatorToQuadkey(double lng, double lat, final int zl) {
     int[] tile_xy = mercatorToTileXY(lng, lat, zl);
     return tileXYToQuadkey(tile_xy[0], tile_xy[1]);
+  }
+  public static long mercatorToQuadkey(double lng, double lat) {
+    return mercatorToQuadkey(lng, lat, MAX_ZOOM_LEVEL);
   }
 
   /**
@@ -428,15 +438,6 @@ public final class QuadkeyUtils {
    *
    */
 
-  public static long quadkeyZoomBy(long quadkey, int zldiff) throws IllegalArgumentException {
-    if (zldiff < 0) { throw new IllegalArgumentException("Cannot zoom in on a quadkey; we wouldn't know which one to choose"); }
-    return quadkey >> zldiff;
-  }
-
-  public static long quadkeyZoom(long quadkey, int zl_old, int zl_new) {
-    return quadkeyZoomBy(quadkey, zl_new - zl_old);
-  }
-
   /**
    * Quadkey handle (Morton number) of tile with given tile x/y indices.
    */
@@ -465,29 +466,60 @@ public final class QuadkeyUtils {
     return res;
   }
 
-  /* Quadkey directly up of the given quadkey */
+  /**
+   * Zoom quadkey out (coarser zl) by the given number of levels.
+   * @param quadkey
+   * @param zldiff  Number of zoom levels to increase. Must not be negative
+   * @return quadkey of the specified parent, or the same quadkey for zldiff=0
+   */
+  public static long quadkeyZoomBy(long quadkey, int zldiff) throws IllegalArgumentException {
+    if (zldiff < 0) { throw new IllegalArgumentException("Cannot zoom in on a quadkey; we wouldn't know which one to choose"); }
+    return quadkey >> zldiff;
+  }
+
+  /**
+   * Quadkey of the ancestor containting that tile at the given zoom level
+   *
+   * @param quadkey
+   * @param zl
+   * @param zl_anc    Zoom level of detail for the ancestor. Must not be finer than the given quadkey's zl
+   * @return quadkey of the specified tile
+   */
+  public static long quadkeyAncestor(long quadkey, int zl, int zl_anc) {
+    return quadkeyZoomBy(quadkey, zl_anc - zl);
+  }
+
+  /** Quadkeys of each chiild tile at one finer zoom level */
+  public static Long[] quadkeyChildren(long qk) {
+    Long cqk = qk << 2;
+    Long[] children = { cqk|0, cqk|1, cqk|2, cqk|3 };
+    return children;
+  }
+
+  /** Quadkey directly up of the given quadkey */
   public static long quadkeyNeighborUp(long qk) {
     long qk_yd = (qk    & 0xAAAAAAAAAAAAAAAAL) - 2;
     return       (qk_yd & 0xAAAAAAAAAAAAAAAAL) | (qk & 0x5555555555555555L);
   }
 
-  /* Quadkey directly left of the given quadkey */
+  /** Quadkey directly left of the given quadkey */
   public static long quadkeyNeighborLeft(long qk) {
     long qk_xd = (qk    & 0x5555555555555555L) - 1;
     return       (qk_xd & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL); // Don't be afraid, 0xAAAAAA!
   }
 
-  /* Quadkey to the direct right of the given quadkey */
+  /** Quadkey to the direct right of the given quadkey */
   public static long quadkeyNeighborRight(long qk) {
     long qk_xi = (qk    | 0xAAAAAAAAAAAAAAAAL) + 1;
     return       (qk_xi & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL);
   }
 
-  /* Quadkey to the direct down of the given quadkey */
+  /** Quadkey to the direct down of the given quadkey */
   public static long quadkeyNeighborDown(long qk) {
     long qk_yi = (qk    | 0x5555555555555555L) + 2;
     return       (qk_yi & 0xAAAAAAAAAAAAAAAAL) | (qk & 0x5555555555555555L);
   }
+
 
   /**
    * Given a [tile_x, tile_y] pair, returns a 9-element array of [tile_x,
@@ -548,19 +580,20 @@ public final class QuadkeyUtils {
    *
    * @param qk_1    Quadkey handle
    * @param qk_2    Quadkey handle
-   * @return        quadkey of smallest tile (highest ZL) containing both
+   * @return        quadkey of smallest tile (highest ZL) containing both,
    */
-  public static long[] smallestContaining(long qk_1, long qk_2) throws RuntimeException {
-    for (long zldiff = 0L; zldiff <= MAX_ZOOM_LEVEL;  zldiff++) {
+  public static long[] smallestContaining(long qk_1, long qk_2, int zl) throws RuntimeException {
+    for (; zl >= 0;  zl--) {
       if (qk_1 == qk_2) {
-        long[] qk_zldiff = { qk_1, zldiff };
-        return qk_zldiff;
+        long[] qk_zl = { qk_1, zl };
+        return qk_zl;
       }
       qk_1 >>= 2;
       qk_2 >>= 2;
     }
     throw new RuntimeException("Quadkeys out of range: "+qk_1+" or "+qk_2+" have more bits than I can shift.");
   }
+
 
 
   /**
@@ -577,9 +610,8 @@ public final class QuadkeyUtils {
     long qk_1 = quadstrToQuadkey(quadstr_1), qk_2 = quadstrToQuadkey(quadstr_2);
     if (zl_1 != zl_2) { throw new IllegalArgumentException("Tiles must be at same zoom level for the result to make sense"); }
     //
-    long[] qk_zldiff = smallestContaining(qk_1, qk_2);
-    String res = quadkeyToQuadstr(qk_zldiff[0], zl_1 - (int)qk_zldiff[1]);
-    System.err.println(String.format("%8d %8d %3d %3d %-12s %-12s %-12s", qk_1, qk_2, zl_1, qk_zldiff[1], quadstr_1, quadstr_2, res));
+    long[] qk_zl = smallestContaining(qk_1, qk_2, zl_1);
+    String res = quadkeyToQuadstr(qk_zl[0], (int)qk_zl[1]);
     return res;
   }
 

@@ -25,7 +25,7 @@ import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Point;
 
 public class GeoCentroid extends GeoProcessFunc {
-  
+
   public Geometry processGeom(OGCGeometry geom) {
     // Geometry.Type geom_type = geom.getType();
     // if (! (geom_type.equals(Geometry.Type.Polygon))) { return null; }

@@ -27,7 +27,7 @@ import com.esri.core.geometry.Envelope;
 public class GeoMinCoord extends GeoScalarFunc<Double> {
   public MinHandler handler;
   public String dimension_name;
-  
+
   private enum Dimensions {
     X,
     Y,
@@ -66,7 +66,7 @@ public class GeoMinCoord extends GeoScalarFunc<Double> {
   interface MinHandler {
     public Double handle(OGCGeometry geom);
   }
-  
+
   class MinXHandler implements MinHandler{
     public Double handle(OGCGeometry geom) {
       Envelope bbox = new Envelope();
@@ -92,7 +92,7 @@ public class GeoMinCoord extends GeoScalarFunc<Double> {
       return geom.MinZ();
     }
   }
-  
+
   class MinMHandler implements MinHandler {
     public Double handle(OGCGeometry geom) {
       if (! geom.isMeasured()) {

@@ -44,7 +44,7 @@ public class GeoConvexHull extends GeoProcessFunc
     this.operator = (OperatorConvexHull)OperatorFactoryLocal.getInstance()
       .getOperator(Operator.Type.ConvexHull);
   }
-  
+
   public Geometry processGeom(OGCGeometry geom) {
     Geometry result = operator.execute(geom.getEsriGeometry(), null);
     return result;

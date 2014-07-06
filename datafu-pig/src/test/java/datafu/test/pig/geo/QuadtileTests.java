@@ -32,6 +32,16 @@ import org.testng.annotations.Test;
 import datafu.test.pig.PigTests;
 
 import datafu.pig.geo.QuadkeyUtils;
+import datafu.pig.geo.GeometryUtils;
+import datafu.pig.geo.Quadtile;
+
+import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.ogc.OGCGeometry;
+
+import com.esri.core.geometry.Envelope;
+import com.esri.core.geometry.Envelope2D;
+import com.esri.core.geometry.GeometryEngine;
+import com.esri.core.geometry.Point;
 
 public class QuadtileTests extends PigTests
 {
@@ -48,8 +58,62 @@ public class QuadtileTests extends PigTests
 
   private final static int[]    ENDWLD_TILEXY_21 = { 2097151, 2097151, 21 };
 
-  private final static double[] AUSQUAD_W_S_E_N  = {
+  private final static double[] AUS_WSEN_16  = {
     -97.7618408203125, 30.273300428069934, -97.75634765625, 30.278044377800153 };
+
+  private final static double[] AUS_WSEN_11  = {
+    -97.910156250000,   30.145127184376120, -97.734375001,   30.297017883372035 };
+
+  @Test
+  public void quadtileBasicsTest() throws Exception
+  {
+    Quadtile qt   = Quadtile.quadtileContaining(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 16);
+    Assert.assertEquals(AUSTIN_QUADSTR, qt.quadstr());
+    Assert.assertEquals(AUSTIN_QUADKEY,      qt.quadkey());
+    Assert.assertEquals(AUSTIN_TILEXY_16[0], qt.tileX());
+    Assert.assertEquals(AUSTIN_TILEXY_16[1], qt.tileY());
+    Assert.assertEquals(AUSTIN_QUADKEY,      qt.quadkey());
+    assertTileXYEquals(AUSTIN_TILEXY_16,     qt.tileXY());
+    assertTileXYZEquals(AUSTIN_TILEXY_16,    qt.tileXYZ());
+  }
+
+  @Test
+  public void quadtileConstructorsTest() throws Exception
+  {
+    Quadtile qt;
+    double
+      lng    = AUSTIN_LNGLAT[0],
+      lat    = AUSTIN_LNGLAT[1],
+      quad_w = AUS_WSEN_16[0],
+      quad_s = AUS_WSEN_16[1]+1e-9, // nudge the bottom right corner back into the zl-16 tile
+      quad_e = AUS_WSEN_16[2]-1e-9,
+      quad_n = AUS_WSEN_16[3];
+    //
+    qt = Quadtile.quadtileContaining(lng, lat, 16);
+    Assert.assertEquals("From lng/lat",                                   AUSTIN_QUADSTR, qt.quadstr());
+    qt = Quadtile.quadtileContaining(new Point(lng, lat), 16);
+    Assert.assertEquals("From Point Geometry",                            AUSTIN_QUADSTR, qt.quadstr());
+    qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n));
+    Assert.assertEquals("From Envelope",                                  AUSTIN_QUADSTR, qt.quadstr());
+    qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 16);
+    Assert.assertEquals("From shape and zl",                              AUSTIN_QUADSTR, qt.quadstr());
+    qt = Quadtile.quadtileContaining(quad_w, quad_s, quad_e, quad_n, 16);
+    Assert.assertEquals("From coords",                                    AUSTIN_QUADSTR, qt.quadstr());
+    qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 20);
+    Assert.assertEquals("From shape & finer zl -- zl fits the shape",     AUSTIN_QUADSTR, qt.quadstr());
+    qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 11);
+    Assert.assertEquals("From shape & coarser zl -- gives zl specified",  AUSTIN_QUADSTR.substring(0,11), qt.quadstr());
+    qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 20);
+    Assert.assertEquals("From coords & finer zl -- zl fits the shape",    AUSTIN_QUADSTR, qt.quadstr());
+    qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 11);
+    Assert.assertEquals("From coords & coarser zl -- gives zl specified", AUSTIN_QUADSTR.substring(0,11), qt.quadstr());
+  }
+
+  @Test
+  public void quadtileDecomposeTest() throws Exception
+  {
+
+  }
 
   @Test
   public void quadkeyConversionTest() throws Exception
@@ -66,12 +130,12 @@ public class QuadtileTests extends PigTests
       assertTileXYEquals(tile_xy, QuadkeyUtils.mercatorToTileXY(lnglat[0], lnglat[1], zl));
       assertLnglatsWithin(lnglat, QuadkeyUtils.tileXYToMercator(tile_xy[0], tile_xy[1], zl), 1e-9);
     }
-
+    //
     Assert.assertEquals(AUSTIN_QUADKEY >> 26, QuadkeyUtils.tileXYToQuadkey(AUSTIN_TILEXY_3[0],  AUSTIN_TILEXY_3[1]));
     Assert.assertEquals(AUSTIN_QUADKEY >> 16, QuadkeyUtils.tileXYToQuadkey(AUSTIN_TILEXY_8[0],  AUSTIN_TILEXY_8[1]));
     Assert.assertEquals(AUSTIN_QUADKEY >> 10, QuadkeyUtils.tileXYToQuadkey(AUSTIN_TILEXY_11[0], AUSTIN_TILEXY_11[1]));
     Assert.assertEquals(AUSTIN_QUADKEY,       QuadkeyUtils.tileXYToQuadkey(AUSTIN_TILEXY_16[0], AUSTIN_TILEXY_16[1]));
-
+    //
     assertTileXYEquals(AUSTIN_TILEXY_3,       QuadkeyUtils.mercatorToTileXY(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 3));
     assertTileXYEquals(AUSTIN_TILEXY_8,       QuadkeyUtils.mercatorToTileXY(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 8));
     assertTileXYEquals(AUSTIN_TILEXY_11,      QuadkeyUtils.mercatorToTileXY(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 11));
@@ -80,58 +144,17 @@ public class QuadtileTests extends PigTests
     assertTileXYEquals(ENDWLD_TILEXY_21,      QuadkeyUtils.mercatorToTileXY(180,         -85.05112878,   21));
   }
 
-  // @Test
-  // public void mercatorTest() throws Exception
-  // {
-  //   double[] special_lngs = {
-  //     -180, Math.nextUp(-180),
-  //     QuadkeyUtils.MIN_MERC_LNG,
-  //     -60, -30,
-  //     -1e-8, 0, 1e-8,
-  //     30, 60,
-  //     QuadkeyUtils.MAX_MERC_LNG,
-  //     180
-  //   };
-  //   double[] special_lats = {
-  //     // -90,  QuadkeyUtils.MIN_MERC_LAT, -60,
-  //     -30,
-  //     // -1e-8, 0, 1e-8, 30, 60, QuadkeyUtils.MAX_MERC_LAT, 90
-  //   };
-  //
-  //   int zl = 5;
-  //
-  //   for (int lngi = 0; lngi < special_lngs.length; lngi++) {
-  //     for (int latj = 0; latj < special_lats.length; latj++) {
-  //       int[] tile_xy = QuadkeyUtils.mercatorToTileXY(special_lngs[lngi], special_lats[latj], zl);
-  //       System.err.println(String.format("%8d %8d %4d %20.15f %20.15f mercatorTest",
-  //           tile_xy[0], tile_xy[1], zl, special_lngs[lngi], special_lats[latj]));
-  //     }
-  //   }
-  // }
-
-
-  // System.err.println( String.format("%6d %6d %6d %6d %3d %19.14f %19.14f %8d %8d %8d %8d %s\tmain",
-  //     tile_xy[0],
-  //     txy_2[0],
-  //     tile_xy[1],
-  //     txy_2[1],
-  //     zl, lnglat[0], lnglat[1], qk,
-  //     QuadkeyUtils.tileXYToQuadkey(tile_xy[0], tile_xy[1]),
-  //     QuadkeyUtils.quadstrToQuadkey(quadstr),
-  //     QuadkeyUtils.mercatorToQuadkey(lnglat[0], lnglat[1], zl),
-  //     quadstr));
-
   @Test
   public void coordsTest() throws Exception
   {
-    double[] exp = {AUSQUAD_W_S_E_N[0], AUSQUAD_W_S_E_N[3]};
+    double[] exp = {AUS_WSEN_16[0], AUS_WSEN_16[3]};
     assertLnglatsWithin(exp, QuadkeyUtils.quadkeyToMercator(AUSTIN_QUADKEY, 16), 1e-10);
 
     double[] coords = QuadkeyUtils.tileXYToCoords(AUSTIN_TILEXY_16[0], AUSTIN_TILEXY_16[1], 16);
-    assertClose(coords[0], AUSQUAD_W_S_E_N[0]);
-    assertClose(coords[1], AUSQUAD_W_S_E_N[1]);
-    assertClose(coords[2], AUSQUAD_W_S_E_N[2]);
-    assertClose(coords[3], AUSQUAD_W_S_E_N[3]);
+    assertClose(coords[0], AUS_WSEN_16[0]);
+    assertClose(coords[1], AUS_WSEN_16[1]);
+    assertClose(coords[2], AUS_WSEN_16[2]);
+    assertClose(coords[3], AUS_WSEN_16[3]);
   }
 
   @Test
@@ -141,12 +164,12 @@ public class QuadtileTests extends PigTests
     Assert.assertEquals(8L,                    QuadkeyUtils.mapTileSize(3));
     Assert.assertEquals(ENDWLD_TILEXY_21[0]+1, QuadkeyUtils.mapTileSize(21));
     Assert.assertEquals(0x80000000,            QuadkeyUtils.mapTileSize(31));
-
+    //
     Assert.assertEquals(0,                     QuadkeyUtils.maxTileIdx(0));
     Assert.assertEquals(7,                     QuadkeyUtils.maxTileIdx(3));
     Assert.assertEquals(ENDWLD_TILEXY_21[0],   QuadkeyUtils.maxTileIdx(21));
     Assert.assertEquals(0X7FFFFFFF,            QuadkeyUtils.maxTileIdx(31));
-
+    //
     Assert.assertEquals(0L,                    QuadkeyUtils.maxQuadkey(0));
     Assert.assertEquals(63,                    QuadkeyUtils.maxQuadkey(3));
     Assert.assertEquals(0x3FFFFFFFFFFFFFFFL,   QuadkeyUtils.maxQuadkey(31));
@@ -156,32 +179,25 @@ public class QuadtileTests extends PigTests
   public void quadstrTest() throws Exception
   {
     int[] res_xy;
-
+    //
+    Assert.assertEquals("allows '' to be a quadkey (whole map)", 0, QuadkeyUtils.quadstrToQuadkey(""));
+    //
+    Assert.assertEquals("Works for exemplar", AUSTIN_QUADKEY, QuadkeyUtils.quadstrToQuadkey(AUSTIN_QUADSTR));
+    //
+    //
+    Assert.assertEquals("quadstr '' == whole world", "", QuadkeyUtils.tileXYToQuadstr(  0,  0, 0));
+    Assert.assertEquals("quadstr '' == whole world", "", QuadkeyUtils.quadkeyToQuadstr(     0, 0));
+    //
+    Assert.assertEquals("pads out as zl increases", "0000",                  QuadkeyUtils.tileXYToQuadstr(  0,  0, 4));
+    Assert.assertEquals("pads out as zl increases", "0000",                  QuadkeyUtils.quadkeyToQuadstr(     0, 4));
+    Assert.assertEquals("pads out as zl increases", "3333",                  QuadkeyUtils.tileXYToQuadstr( 15, 15, 4));
+    Assert.assertEquals("pads out as zl increases", "3333",                  QuadkeyUtils.quadkeyToQuadstr(   255, 4));
+    Assert.assertEquals("pads out as zl increases", "333333333333333333333", QuadkeyUtils.tileXYToQuadstr(ENDWLD_TILEXY_21[0], ENDWLD_TILEXY_21[1], 21));
+    //
     assertTileXYEquals(AUSTIN_TILEXY_3,           QuadkeyUtils.quadstrToTileXY("023"             ));
     assertTileXYEquals(AUSTIN_TILEXY_8,           QuadkeyUtils.quadstrToTileXY("02313012"        ));
     assertTileXYEquals(AUSTIN_TILEXY_11,          QuadkeyUtils.quadstrToTileXY("02313012033"     ));
     assertTileXYEquals(AUSTIN_TILEXY_16,          QuadkeyUtils.quadstrToTileXY("0231301203311211"));
-
-    // allows '' to be a quadkey (whole map)
-    Assert.assertEquals(0,                       QuadkeyUtils.quadstrToQuadkey(""));
-    // Works for exemplar
-    Assert.assertEquals(AUSTIN_QUADKEY,          QuadkeyUtils.quadstrToQuadkey(AUSTIN_QUADSTR));
-
-    // whole world == ""
-    Assert.assertEquals("",                      QuadkeyUtils.tileXYToQuadstr(  0,  0, 0));
-    Assert.assertEquals("",                      QuadkeyUtils.quadkeyToQuadstr(     0, 0));
-    // pads out to right length as zl
-    Assert.assertEquals("0000",                  QuadkeyUtils.tileXYToQuadstr(  0,  0, 4));
-    Assert.assertEquals("0000",                  QuadkeyUtils.quadkeyToQuadstr(     0, 4));
-    Assert.assertEquals("3333",                  QuadkeyUtils.tileXYToQuadstr( 15, 15, 4));
-    Assert.assertEquals("3333",                  QuadkeyUtils.quadkeyToQuadstr(   255, 4));
-    Assert.assertEquals("333333333333333333333", QuadkeyUtils.tileXYToQuadstr(ENDWLD_TILEXY_21[0], ENDWLD_TILEXY_21[1], 21));
-
-    // returns the smallest quadkey containing two points
-    // Wu::Geo::Geolocation.quadkey_containing_bbox(aus_lng, aus_lat, sat_lng, sat_lat).should == "023130"
-
-    // returns a bounding box given a point and radius
-    // returns a centroid given a bounding box
   }
 
   @Test
@@ -217,6 +233,47 @@ public class QuadtileTests extends PigTests
    *
    */
 
+  // @Test
+  // public void mercatorTest() throws Exception
+  // {
+  //   double[] special_lngs = {
+  //     QuadkeyUtils.MIN_MERC_LNG,
+  //     QuadkeyUtils.MIN_MERC_LNG+QuadkeyUtils.EDGE_FUDGE,
+  //     -168.7500000001,
+  //     -168.750000000,
+  //     -60, -30, -1e-8, 0, 1e-8, 30, 60,
+  //     168.7500000001,
+  //     QuadkeyUtils.MAX_MERC_LNG-QuadkeyUtils.EDGE_FUDGE,
+  //     QuadkeyUtils.MAX_MERC_LNG
+  //   };
+  //   double[] special_lats = {
+  //     -90,
+  //     QuadkeyUtils.MIN_MERC_LAT,
+  //     -60, -30, -1e-8, 0, 1e-8, 30, 60,
+  //     55.776573018667705,
+  //     61.60639637,
+  //     61.606396371286266,
+  //     QuadkeyUtils.MAX_MERC_LAT,
+  //     90
+  //   };
+  //   //
+  //   int zl = 5;
+  //   for (int lngi = 0; lngi < special_lngs.length; lngi++) {
+  //     for (int latj = 0; latj < special_lats.length; latj++) {
+  //       int[] tile_xy    = QuadkeyUtils.mercatorToTileXY(special_lngs[lngi], special_lats[latj], zl);
+  //       double[] coords  = QuadkeyUtils.tileXYToCoords(tile_xy[0], tile_xy[1], zl);
+  //       //
+  //       System.err.println(String.format("%8d %8d %4d %20.15f %20.15f %20.15f %20.15f %20.15f %20.15f mercatorTest",
+  //           tile_xy[0], tile_xy[1], zl,
+  //           coords[0], special_lngs[lngi], coords[2],
+  //           coords[1], special_lats[latj], coords[3]));
+  //     }
+  // //     QuadkeyUtils.tileXYToQuadkey(tile_xy[0], tile_xy[1]),
+  // //     QuadkeyUtils.quadstrToQuadkey(quadstr),
+  // //     QuadkeyUtils.mercatorToQuadkey(lnglat[0], lnglat[1], zl),
+  //   }
+  // }
+
   @Test
   public void geometryTest() throws Exception
   {
@@ -239,21 +296,19 @@ public class QuadtileTests extends PigTests
     // for (int idx = 0; idx < lats.length; idx++) {
     //   QuadkeyUtils.tilesCoveringCircle(172.1+2*lats[idx], REYKJAVIK_LNGLAT[1], 200000, 7);
     // }
-    for (int idx = 0; idx < lats.length; idx++) {
-      QuadkeyUtils.tilesCoveringCircle(50, 51.5 + 2*lats[idx], 600000, 6);
-    }
-    for (int idx = 0; idx < lats.length; idx++) {
-      QuadkeyUtils.tilesCoveringCircle(50, 62.1 + 2*lats[idx], 600000, 6);
-    }
-    for (int idx = 0; idx < lats.length; idx++) {
-      QuadkeyUtils.tilesCoveringCircle(50, 82.5 + 2*lats[idx], 600000, 6);
-    }
-    for (int idx = 0; idx < lats.length; idx++) {
-      QuadkeyUtils.tilesCoveringCircle(50, 84.0 + 2*lats[idx], 600000, 6);
-    }
-
-
-
+    // for (int idx = 0; idx < lats.length; idx++) {
+    //   QuadkeyUtils.tilesCoveringCircle(50, 51.5 + 2*lats[idx], 600000, 6);
+    // }
+    // for (int idx = 0; idx < lats.length; idx++) {
+    //   QuadkeyUtils.tilesCoveringCircle(50, 62.1 + 2*lats[idx], 600000, 6);
+    // }
+    // for (int idx = 0; idx < lats.length; idx++) {
+    //   QuadkeyUtils.tilesCoveringCircle(50, 82.5 + 2*lats[idx], 600000, 6);
+    // }
+    // for (int idx = 0; idx < lats.length; idx++) {
+    //   QuadkeyUtils.tilesCoveringCircle(50, 84.0 + 2*lats[idx], 600000, 6);
+    // }
+    //
     // double vals[] = {
     //   QuadkeyUtils.lngEast(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  10),
     //   QuadkeyUtils.lngWest(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1],  10),
@@ -343,10 +398,10 @@ public class QuadtileTests extends PigTests
     // Assert.assertEquals(exp_xyz[2], res_xyz[2]);
   }
 
-  private void assertTileXYZsEquals(int[] exp_xyz, int[] res_xyz) {
+  private void assertTileXYZEquals(int[] exp_xyz, int[] res_xyz) {
     Assert.assertEquals(exp_xyz[0], res_xyz[0]);
     Assert.assertEquals(exp_xyz[1], res_xyz[1]);
-    // Assert.assertEquals(exp_xyz[2], res_xyz[2]);
+    Assert.assertEquals(exp_xyz[2], res_xyz[2]);
   }
 
   private void assertQkZlEquals(long[] res_qkzl, long... exp_qkzl) {
@@ -365,6 +420,6 @@ public class QuadtileTests extends PigTests
       ( Math.abs(exp_ll - res_ll) < eps));
   }
   private void assertClose(double exp_ll, double res_ll) {
-    assertWithin(exp_ll, res_ll, 1e-10);
+    assertWithin(exp_ll, res_ll, 1e-9);
   }
 }

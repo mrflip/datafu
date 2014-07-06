@@ -60,7 +60,7 @@ public abstract class GeoScalarFunc<T> extends SimpleEvalFunc<T>
   //
   // TODO: FIXME: This returns DOUBLE for everything
   //
-  
+
   @Override
   public Schema outputSchema(Schema input)
   {

@@ -28,11 +28,11 @@ import com.esri.core.geometry.ogc.OGCGeometry;
  * intersection or self tangency. See the "Simple feature access - Part 1"
  * document (OGC 06-103r4) for meaning of "simple" for each geometry
  * type. (Note: that document is not simple.)
- * 
+ *
  * The method has O(n log n) complexity when the input geometry is simple.
  * For non-simple geometries, it terminates immediately when the first issue is
  * encountered.
- * 
+ *
  */
 public class GeoIsSimple extends GeoScalarFunc<Integer> {
 

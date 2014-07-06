@@ -28,13 +28,13 @@ import com.esri.core.geometry.OperatorBuffer;
 public class GeoBuffer extends GeoProcessFunc {
   OperatorBuffer operator;
   double         bufferDistance;
-  
+
   public GeoBuffer(String options) {
     this.bufferDistance = Double.parseDouble(options);
     this.operator = (OperatorBuffer)OperatorFactoryLocal.getInstance()
       .getOperator(Operator.Type.Buffer);
   }
-  
+
   public Geometry processGeom(OGCGeometry geom) {
     Geometry result = operator.execute(geom.getEsriGeometry(),
       geom.getEsriSpatialReference(), bufferDistance, null);
