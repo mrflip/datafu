@@ -1,3 +1,136 @@
+
+
+//
+//   public static List<String> childrenContaining(Geometry geom, String parent) {
+//     List<String> children = childrenFor(parent);
+//     List<String> returnChildren = new ArrayList<String>();
+//     for (String child : children) {
+//       Polygon quadstrBox = quadstrToBox(child);
+//       if (quadstrBox.intersects(g)) {
+//         returnChildren.add(child);
+//       }
+//     }
+//     return returnChildren;
+//   }
+//
+//
+//   /**
+//      Recursively search through quadstr for overlapping with the passed in geometry.
+//   */
+//   public static boolean checkQuadstr(String quadstr, DataBag returnKeys, Geometry g, int maxDepth) {
+//     // Compute bounding box for the tile
+//     Polygon keyBox = quadstrToBox(quadstr);
+//     if (returnKeys.size() > MAX_TILES) return false;
+//
+//     if (keyBox.intersects(g)) {
+//       if (quadstr.length() >= maxDepth ) {
+//         Tuple quadstrTuple = tupleFactory.newTuple(quadstr);
+//         returnKeys.add(quadstrTuple);
+//         return true;
+//       }
+//       List<String> children = childrenFor(quadstr);
+//
+//       Geometry cut = g.intersection(keyBox);
+//       cut = (cut.getGeometrytjpe().equals(GEOM_COLLEC) ? cut.getEnvelope() : cut );
+//
+//       for (String child : children) {
+//         checkQuadstr(child, returnKeys, cut, maxDepth);
+//       }
+//     }
+//     return true;
+//   }
+
+//   /* ***************************************************************************
+//    *
+//    * Geometry Methods
+//    *
+//    */
+//
+//   public Geometry geomExtent() {
+//   }
+//
+//   public List<Quadtile> neighborhoodList() {
+//   }
+//
+//   public Quadtile[] neighborhood_9() {
+//   }
+//
+//   public Quadtile[] descendants(int child_zl) throws RuntimeException {
+//     int zl_diff = child_zl - zl;
+//     if (zl_diff < 0) { throw new RuntimeException("Asked for children at higher zoom level than tile: tile is "+zl+"; requested "+child_zl); }
+//
+//     Quadtile[] result = [];
+//     long qk_base = quadkey << zl_diff;
+//     for (offset = 0; offset < (1 << zl_diff); offset++) {
+//       result[i] = new Quadtile(qk_base | offset);
+//     }
+//     return result;
+//   }
+//
+//   public Quadtile[] children() {
+//     return descendants(zl+1);
+//   }
+//
+//   /**
+//      The desired behavior is to return an empty string if the geometry is
+//      too large to be inside even the lowest resolution quadstr.
+//   */
+//   public static String quadtileCovering(Geometry g, int zl) {
+//     Point centroid = g.getCentroid();
+//     for (int i = zl; i > 0; i--) {
+//       String  quadstr    = geoPointToQuadstr(centroid.getX(), centroid.getY(), i);
+//       Polygon quadstrBox = quadstrToBox(quadstr);
+//       if (quadstrBox.contains(g)) return quadstr;
+//     }
+//     return "";
+//   }
+//
+//   /* ***************************************************************************
+//    *
+//    * Handles and coordinates
+//    *
+//    */
+//
+//   public int getTileX() {
+//     if (tile_i == null) {
+//       int[] tile_ij = QuadkeyUtils.quadkeyToTileIJ(quadkey);
+//       this.tile_i = tile_ij[0];
+//       this.tile_j = tile_ij[0];
+//     }
+//     return tile_i;
+//   }
+//
+//   /**
+//    * Returns the corner WGS84 coordinates of the tile:
+//    *
+//    * [west, south, east, north​] (i.e. min_i, min_j, max_i, max_j)
+//    *
+//    * @return west, south, east, north coordinates
+//    */
+//   public double[] cornerCoords() {
+//   }
+//
+//
+//
+//   /**
+//      Get all tiles overlapping the given geometry at the specified zoom level.
+//   */
+//   public static DataBag allTilesFor(Geometry g, int maxDepth) {
+//     String       container   = containingQuadtile(g, maxDepth);
+//     List<String> keysToCheck = childrenFor(container);
+//     DataBag      returnKeys  = bagFactory.newDefaultBag();
+//
+//     for (String key : keysToCheck) {
+//       boolean fullySearched = checkQuadstr(key, returnKeys, g, maxDepth);
+//       // If there are ever too many tiles, stop everything and return empty bag
+//       if (!fullySearched) {
+//         System.out.println("Too many tiles! ["+returnKeys.size()+"]");
+//         returnKeys.clear();
+//         return returnKeys;
+//       }
+//     }
+//     return returnKeys;
+//   }
 //
 //   public static Quadtile quadtileContaining(double west, double south, double east, double north) {
 //

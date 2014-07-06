@@ -48,7 +48,7 @@ public class EsriTests extends PigTests
 
 
   @Test
-  public void geoEnvelopeTest() throws Exception
+  public void quadtileDecomposeTest() throws Exception
   {
 
     String[] park_cells = {
@@ -555,7 +555,7 @@ public class EsriTests extends PigTests
 
   // Run last just to make sure things are sane.
   @Test
-  public void geoZLastTest() throws Exception
+  public void zLastTest() throws Exception
   {
     String[] expected_output = {
       "(0.0)",

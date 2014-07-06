@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package datafu.pig.geo;
 
 import java.util.Iterator;
@@ -47,13 +64,10 @@ import org.apache.commons.logging.LogFactory;
  *   non-digits on the right (a handy trick to force parent tiles to sort ahead
  *   (* or #) or behind (~) their children.)</li>
  *
- * <li><em>tile x,y</em> -- Index of tile: X horizontally (from west to east /
- *   left to right) and Y vertically (from north to south / top to bottom). Note
+ * <li><em>tile i,j</em> -- Index of tile: <code>i</code> horizontally (from west to east /
+ *   left to right) and <code>j</code> vertically (from north to south / top to bottom). Note
  *   that this puts the origin at the top left corner.</li>
  *
- * <li><em>pixel x, y</em> -- index of pixel using the 256x256 tile scheme
- *   expected by most industry tileservers. As with tile indices, origin is at
- *   top left.</em>
  *</ul>
  *
  * All references to tiles must come with a zoom level of detail ('zl') (apart
@@ -62,7 +76,7 @@ import org.apache.commons.logging.LogFactory;
  * four million trillion tiles. (Tileservers generally extend only to zl 23).
  * Results are undefined for zoom level 32.
  *
- * The mercator maptile x/y/zl scheme is used by all popular online tile servers
+ * The mercator maptile i/j/zl scheme is used by all popular online tile servers
  * -- open streetmap, google maps, bing maps, stamen, leaflet, others -- to
  * serve map imagery. It relies on a mercator projection that makes serious
  * geographers cry, but as anyone who internets should recognize is
@@ -102,20 +116,19 @@ public final class QuadkeyUtils {
   public static final double GLOBE_CIRCUM    = GLOBE_RADIUS * 2.0 * Math.PI;
 
   public static final int   MAX_ZOOM_LEVEL   = 30;
-  public static final int   TILE_PIXEL_SIZE  = 256;
 
   // The arctan/log/tan/sinh business gives slight loss of precision. We could
   // live with that on the whole, but it can push the boundary of a tile onto
-  // the one above it so lnglatToTileXY(tileXYToLnglat(foo)) != foo. Adding
+  // the one above it so lnglatToTileIJ(tileIJToLnglat(foo)) != foo. Adding
   // this 1-part-per-billion fudge stabilized things; with this, no edge will
   // ever dance across tiles. Each of the following equivalents to the code
-  // here or in tileXYToLnglat work, and none performed better.
+  // here or in tileIJToLnglat work, and none performed better.
   //
   // double lat_rad = Math.toRadians(lat);           // OSM version
-  // double ty2     = mapsize * (1 - Math.log( Math.tan(lat_rad)  + (1/Math.cos(lat_rad)) )/Math.PI) / 2.0;
+  // double tj2     = mapsize * (1 - Math.log( Math.tan(lat_rad)  + (1/Math.cos(lat_rad)) )/Math.PI) / 2.0;
   // double sin_lat = Math.sin(lat * Math.PI / 180); // Bing version
-  // double ty3     = mapsize * (0.5 - Math.log((1 + sin_lat) / (1 - sin_lat)) / (4 * Math.PI));
-  // double lat2    = 180/Math.PI*Math.atan(Math.sinh(Math.PI * (1 - 2.0*ty/mapsize)));
+  // double tj3     = mapsize * (0.5 - Math.log((1 + sin_lat) / (1 - sin_lat)) / (4 * Math.PI));
+  // double lat2    = 180/Math.PI*Math.atan(Math.sinh(Math.PI * (1 - 2.0*tj/mapsize)));
   //
   public static final double EDGE_FUDGE      = 1e-10;
 
@@ -128,28 +141,28 @@ public final class QuadkeyUtils {
   /*
    *
    * TODO: separate the projection code from the tile code. This should just all
-   * live in tile x/y land only.
+   * live in tile i/j land only.
    *
    */
 
   /**
-   * Tile XY indices of the tile containing that point at given zoom level using
+   * Tile IJ indices of the tile containing that point at given zoom level using
    * the popular tileserver Mercator projection.
    *
    * @param lng     Longitude of the point, in WGS-84 degrees
    * @param lat     Latitude of the point, in WGS-84 degrees
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        { tile_x, tile_y }
+   * @return        { tile_i, tile_j }
    */
-  public static int[] mercatorToTileXY(double lng, double lat, final int zl) {
+  public static int[] mercatorToTileIJ(double lng, double lat, final int zl) {
     int      mapsize = mapTileSize(zl);
     //
-    double[] proj_xy = mercatorToProjXY(lng, lat, zl);
-    int[]    tile_xy = {
-      (int) NumberUtils.snap(Math.floor(proj_xy[0]), 0, mapsize-1),
-      (int) NumberUtils.snap(Math.floor(proj_xy[1]), 0, mapsize-1)
+    double[] proj_ij = mercatorToProjIJ(lng, lat, zl);
+    int[]    tile_ij = {
+      (int) NumberUtils.snap(Math.floor(proj_ij[0]), 0, mapsize-1),
+      (int) NumberUtils.snap(Math.floor(proj_ij[1]), 0, mapsize-1)
     };
-    return tile_xy;
+    return tile_ij;
   }
 
   /**
@@ -158,59 +171,59 @@ public final class QuadkeyUtils {
    *
    * We allow this to be called with tile index = mapsize, i.e. the index of a
    * hypothetical tile hanging off the right or bottom edge of the map, so that
-   * you can call this function on tx+1 or ty+1 to get the right/bottom edge of
+   * you can call this function on ti+1 or tj+1 to get the right/bottom edge of
    * a tile.
    *
-   * @param tx      X index of tile
-   * @param ty      Y index of tile
+   * @param ti      I index of tile
+   * @param tj      J index of tile
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
    * @return        { longitude, latitude }
    */
-  public static double[] tileXYToMercator(int tx, int ty, int zl) {
-    return projXYToMercator(tx, ty, zl);
+  public static double[] tileIJToMercator(int ti, int tj, int zl) {
+    return projIJToMercator(ti, tj, zl);
   }
 
   /**
-   * XY coordinates of a point at given zoom level using the popular tileserver
-   * Mercator projection. This is the fractional equivalent of the TileXY index.
+   * IJ coordinates of a point at given zoom level using the popular tileserver
+   * Mercator projection. This is the fractional equivalent of the TileIJ index.
    *
    * @param lng     Longitude of the point, in WGS-84 degrees
    * @param lat     Latitude of the point, in WGS-84 degrees
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        { tile_x, tile_y }
+   * @return        { tile_i, tile_j }
    */
-  public static double[] mercatorToProjXY(double lng, double lat, final int zl) {
+  public static double[] mercatorToProjIJ(double lng, double lat, final int zl) {
     assert lng <= 180 && lng >= -180 && lat <= 90 && lat >= -90;
     lng = NumberUtils.snap(lng,  MIN_MERC_LNG,  MAX_MERC_LNG);
     lat = NumberUtils.snap(lat,  MIN_MERC_LAT,  MAX_MERC_LAT);
     //
     int      mapsize = mapTileSize(zl);
-    double   tx      = mapsize   * (lng + 180.0) / 360.0;
-    double   ty      = mapsize/2 * (1 - Math.log(Math.tan( (90 + lat)*Math.PI/360.0 ))/Math.PI);
+    double   ti      = mapsize   * (lng + 180.0) / 360.0;
+    double   tj      = mapsize/2 * (1 - Math.log(Math.tan( (90 + lat)*Math.PI/360.0 ))/Math.PI);
     //
-    ty               = ty + EDGE_FUDGE; // See note above EDGE_FUDGE
-    double[] tile_xy = { tx, ty };
-    return tile_xy;
+    tj               = tj + EDGE_FUDGE; // See note above EDGE_FUDGE
+    double[] tile_ij = { ti, tj };
+    return tile_ij;
   }
-  // System.err.println(String.format("%8d %8d %4d %20.15f %20.15f mercatorToTileXY",
-  //     tile_xy[0], tile_xy[1], zl, lng, lat));
+  // System.err.println(String.format("%8d %8d %4d %20.15f %20.15f mercatorToTileIJ",
+  //     tile_ij[0], tile_ij[1], zl, lng, lat));
 
   /**
    * Longitude/latitude WGS-84 coordinates (in degrees) of the given point in
    * the popular tileserver Mercator projection.
    *
-   * @param tx      X index of tile
-   * @param ty      Y index of tile
+   * @param ti      I index of tile
+   * @param tj      J index of tile
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
    * @return        { longitude, latitude }
    */
-  public static double[] projXYToMercator(double tx, double ty, int zl) {
+  public static double[] projIJToMercator(double ti, double tj, int zl) {
     int mapsize  = mapTileSize(zl);
-    tx = NumberUtils.snap(tx, 0, mapsize);
-    ty = NumberUtils.snap(ty, 0, mapsize);
+    ti = NumberUtils.snap(ti, 0, mapsize);
+    tj = NumberUtils.snap(tj, 0, mapsize);
     //
-    double lng     = 360.0 * tx / mapsize - 180.0;
-    double lat     = 90.0 - 360.0/Math.PI*Math.atan( Math.exp(Math.PI*(ty*2/mapsize - 1)) );
+    double lng     = 360.0 * ti / mapsize - 180.0;
+    double lat     = 90.0 - 360.0/Math.PI*Math.atan( Math.exp(Math.PI*(tj*2/mapsize - 1)) );
     //
     double[] result = {lng, lat};
     return result;
@@ -222,16 +235,16 @@ public final class QuadkeyUtils {
    *
    *   minimum longitude, minimum latitude, maximum longitude, maximum latitude
    *
-   * @param tx      X index of tile
-   * @param ty      Y index of tile
+   * @param ti      I index of tile
+   * @param tj      J index of tile
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
    * @return        [west, south, east, north]
    */
-  public static double[] tileXYToCoords(int tx, int ty, int zl) {
+  public static double[] tileIJToMercatorWSEN(int ti, int tj, int zl) {
     int max_idx  = maxTileIdx(zl);
-    if (tx > max_idx || ty > max_idx){ return null; }
-    double[] lf_up = tileXYToMercator(tx,   ty,   zl);
-    double[] rt_dn = tileXYToMercator(tx+1, ty+1, zl);
+    if (ti > max_idx || tj > max_idx){ return null; }
+    double[] lf_up = tileIJToMercator(ti,   tj,   zl);
+    double[] rt_dn = tileIJToMercator(ti+1, tj+1, zl);
 
     // [left, bottom, right, top]​ -- [min_x, min_y, max_x, max_y]
     double[] result = { lf_up[0], rt_dn[1]+EDGE_FUDGE, rt_dn[0]-EDGE_FUDGE, lf_up[1] };
@@ -248,8 +261,8 @@ public final class QuadkeyUtils {
    * @return        Quadkey handle of the tile
    */
   public static long mercatorToQuadkey(double lng, double lat, final int zl) {
-    int[] tile_xy = mercatorToTileXY(lng, lat, zl);
-    return tileXYToQuadkey(tile_xy[0], tile_xy[1]);
+    int[] tile_ij = mercatorToTileIJ(lng, lat, zl);
+    return tileIJToQuadkey(tile_ij[0], tile_ij[1]);
   }
   public static long mercatorToQuadkey(double lng, double lat) {
     return mercatorToQuadkey(lng, lat, MAX_ZOOM_LEVEL);
@@ -264,8 +277,8 @@ public final class QuadkeyUtils {
    * @return        { longitude, latitude }
    */
   public static double[] quadkeyToMercator(long quadkey, int zl) {
-    int[] tile_xy = quadkeyToTileXY(quadkey);
-    return tileXYToMercator(tile_xy[0], tile_xy[1], zl);
+    int[] tile_ij = quadkeyToTileIJ(quadkey);
+    return tileIJToMercator(tile_ij[0], tile_ij[1], zl);
   }
 
   /**
@@ -278,8 +291,8 @@ public final class QuadkeyUtils {
    * @return String holding base-4 representation of quadkey
    */
   public static String mercatorToQuadstr(double lng, double lat, final int zl) {
-    int[] tile_xy = mercatorToTileXY(lng, lat, zl);
-    return tileXYToQuadstr(tile_xy[0], tile_xy[1], zl);
+    int[] tile_ij = mercatorToTileIJ(lng, lat, zl);
+    return tileIJToQuadstr(tile_ij[0], tile_ij[1], zl);
   }
 
   /**
@@ -290,8 +303,8 @@ public final class QuadkeyUtils {
    * @return        { longitude, latitude }
    */
   public static double[] quadkeyToMercator(String quadstr) {
-    int[] tile_xyz = quadstrToTileXYZ(quadstr);
-    return tileXYToMercator(tile_xyz[0], tile_xyz[1], tile_xyz[2]);
+    int[] tile_ijz = quadstrToTileIJZ(quadstr);
+    return tileIJToMercator(tile_ijz[0], tile_ijz[1], tile_ijz[2]);
   }
 
   /**
@@ -397,23 +410,23 @@ public final class QuadkeyUtils {
     else if (east >  180){ west_2 = -180;     east_2 = east-360; east   =  180; } // iterate -180..east-360 and  west..180
     //
     // Scan over tile indexes. For Mercator, lines of lat/lng have constant tile index so only need two corners
-    int[] txy_min = mercatorToTileXY(west,  north,  zl); // (lower ty is north)
-    int[] txy_max = mercatorToTileXY(east,  south,  zl);
-    addTilesCoveringXYRect(txy_min[0], txy_min[1], txy_max[0], txy_max[1], zl, tiles);
+    int[] tij_min = mercatorToTileIJ(west,  north,  zl); // (lower tj is north)
+    int[] tij_max = mercatorToTileIJ(east,  south,  zl);
+    addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
     //
     // If we wrapped, also contribute the wrapped portion
     if (west_2 != 0 || east_2 != 0) {
-      txy_min = mercatorToTileXY(west_2, north,  zl);
-      txy_max = mercatorToTileXY(east_2, south,  zl);
-      addTilesCoveringXYRect(txy_min[0], txy_min[1], txy_max[0], txy_max[1], zl, tiles);
+      tij_min = mercatorToTileIJ(west_2, north,  zl);
+      tij_max = mercatorToTileIJ(east_2, south,  zl);
+      addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
     }
     //
-    int[] txy_pt  = mercatorToTileXY(lng, lat, zl);
+    int[] tij_pt  = mercatorToTileIJ(lng, lat, zl);
     System.err.println(String.format("%10.5f %10.5f %2d %4d | %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f | %5d < %5d > %5d | %5d < %5d > %5d",
         lng, lat, zl, tiles.size(),
         west, south, east, north, west_2, east_2,
-        txy_min[0], txy_pt[0], txy_max[0],
-        txy_min[1], txy_pt[1], txy_max[1]));
+        tij_min[0], tij_pt[0], tij_max[0],
+        tij_min[1], tij_pt[1], tij_max[1]));
     //
     return tiles;
   }
@@ -421,12 +434,12 @@ public final class QuadkeyUtils {
   /**
    * iterate over the given indices in both directions, pushing all tiles found into the list
    */
-  private static void addTilesCoveringXYRect(int tx_min, int ty_min, int tx_max, int ty_max, int zl, List<String> tiles) {
-    for (int ty_q = ty_min; ty_q <= ty_max; ty_q++) {
-      for (int tx_q = tx_min; tx_q <= tx_max; tx_q++) {
-        String quadstr = tileXYToQuadstr(tx_q, ty_q, zl);
+  private static void addTilesCoveringIJRect(int ti_min, int tj_min, int ti_max, int tj_max, int zl, List<String> tiles) {
+    for (int tj_q = tj_min; tj_q <= tj_max; tj_q++) {
+      for (int ti_q = ti_min; ti_q <= ti_max; ti_q++) {
+        String quadstr = tileIJToQuadstr(ti_q, tj_q, zl);
         // System.err.println(String.format("%-12s | %8d %8d %8d | %8d %8d %8d",
-        //     quadstr, tx_min, tx_q, tx_max, ty_min, ty_q, ty_max));
+        //     quadstr, ti_min, ti_q, ti_max, tj_min, tj_q, tj_max));
         tiles.add(quadstr);
       }
     }
@@ -439,29 +452,29 @@ public final class QuadkeyUtils {
    */
 
   /**
-   * Quadkey handle (Morton number) of tile with given tile x/y indices.
+   * Quadkey handle (Morton number) of tile with given tile i/j indices.
    */
-  public static long tileXYToQuadkey(int tx, int ty) {
+  public static long tileIJToQuadkey(int ti, int tj) {
     long qk =
-      MORTON_LUT[(ty >> 24) & 0xff] << 49 |
-      MORTON_LUT[(tx >> 24) & 0xff] << 48 |
-      MORTON_LUT[(ty >> 16) & 0xff] << 33 |
-      MORTON_LUT[(tx >> 16) & 0xff] << 32 |
-      MORTON_LUT[(ty >>  8) & 0xff] << 17 |
-      MORTON_LUT[(tx >>  8) & 0xff] << 16 |
-      MORTON_LUT[ ty        & 0xff] << 1  |
-      MORTON_LUT[ tx        & 0xff];
+      MORTON_LUT[(tj >> 24) & 0xff] << 49 |
+      MORTON_LUT[(ti >> 24) & 0xff] << 48 |
+      MORTON_LUT[(tj >> 16) & 0xff] << 33 |
+      MORTON_LUT[(ti >> 16) & 0xff] << 32 |
+      MORTON_LUT[(tj >>  8) & 0xff] << 17 |
+      MORTON_LUT[(ti >>  8) & 0xff] << 16 |
+      MORTON_LUT[ tj        & 0xff] << 1  |
+      MORTON_LUT[ ti        & 0xff];
     return qk;
   }
 
   /**
-   * Tile X/Y indices of a
+   * Tile I/J indices of a
    */
-  public static int[] quadkeyToTileXY(long qk) {
+  public static int[] quadkeyToTileIJ(long qk) {
     int[] res = { uninterleaveBits(qk), uninterleaveBits(qk >> 1) };
     return res;
   }
-  public static int[] quadkeyToTileXYZ(long qk, int zl) {
+  public static int[] quadkeyToTileIJZ(long qk, int zl) {
     int[] res = { uninterleaveBits(qk), uninterleaveBits(qk >> 1), zl };
     return res;
   }
@@ -496,38 +509,38 @@ public final class QuadkeyUtils {
     return children;
   }
 
-  /** Quadkey directly up of the given quadkey */
-  public static long quadkeyNeighborUp(long qk) {
-    long qk_yd = (qk    & 0xAAAAAAAAAAAAAAAAL) - 2;
-    return       (qk_yd & 0xAAAAAAAAAAAAAAAAL) | (qk & 0x5555555555555555L);
-  }
-
   /** Quadkey directly left of the given quadkey */
   public static long quadkeyNeighborLeft(long qk) {
-    long qk_xd = (qk    & 0x5555555555555555L) - 1;
-    return       (qk_xd & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL); // Don't be afraid, 0xAAAAAA!
+    long qk_id = (qk    & 0x5555555555555555L) - 1;
+    return       (qk_id & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL); 
+  }
+
+  /** Quadkey directly up of the given quadkey */
+  public static long quadkeyNeighborUp(long qk) {
+    long qk_jd = (qk    & 0xAAAAAAAAAAAAAAAAL) - 2;
+    return       (qk_jd & 0xAAAAAAAAAAAAAAAAL) | (qk & 0x5555555555555555L);
   }
 
   /** Quadkey to the direct right of the given quadkey */
   public static long quadkeyNeighborRight(long qk) {
-    long qk_xi = (qk    | 0xAAAAAAAAAAAAAAAAL) + 1;
-    return       (qk_xi & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL);
+    long qk_iu = (qk    | 0xAAAAAAAAAAAAAAAAL) + 1;
+    return       (qk_iu & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL);
   }
 
   /** Quadkey to the direct down of the given quadkey */
   public static long quadkeyNeighborDown(long qk) {
-    long qk_yi = (qk    | 0x5555555555555555L) + 2;
-    return       (qk_yi & 0xAAAAAAAAAAAAAAAAL) | (qk & 0x5555555555555555L);
+    long qk_ju = (qk    | 0x5555555555555555L) + 2;
+    return       (qk_ju & 0xAAAAAAAAAAAAAAAAL) | (qk & 0x5555555555555555L);
   }
 
 
   /**
-   * Given a [tile_x, tile_y] pair, returns a 9-element array of [tile_x,
-   * tile_y] pairs in the following order, right to left and up to down:
+   * Given a [tile_i, tile_j] pair, returns a 9-element array of [tile_i,
+   * tile_j] pairs in the following order, right to left and up to down:
    *
-   *     x-1,y-1   x,y-1    x+1,y-1
-   *     x-1,y     x,y      x+1,y
-   *     x-1,y+1   x,y+1    x+1,y+1
+   *     i-1,j-1   i,j-1    i+1,j-1
+   *     i-1,j     i,j      i+1,j
+   *     i-1,j+1   i,j+1    i+1,j+1
    *
    * If a tile would be off the map, a null value appears in place of the pair.
    * See neighborsList if you only want the neighbors that exist.
@@ -556,7 +569,7 @@ public final class QuadkeyUtils {
    * all its eight neighbors.
    *
    * Most tiles have 9 neighbors.  However, quadkeys for tiles off the map are
-   * not in the list; so a typical tile on the anti-meridian has only 6
+   * not in the list; so a tjpical tile on the anti-meridian has only 6
    * neighbors, and there's four lonely spots in the artic and antarctic with
    * only four neighbors.
    *
@@ -633,10 +646,10 @@ public final class QuadkeyUtils {
 
   /**
    * Quadstr string handle (base-4 representation of the quadkey) for the given
-   * tile x/y indices and zoom level
+   * tile i/j indices and zoom level
    */
-  public static String tileXYToQuadstr(int tx, int ty, int zl) {
-    long quadkey = tileXYToQuadkey(tx, ty);
+  public static String tileIJToQuadstr(int ti, int tj, int zl) {
+    long quadkey = tileIJToQuadkey(ti, tj);
     return quadkeyToQuadstr(quadkey, zl);
   }
 
@@ -663,66 +676,23 @@ public final class QuadkeyUtils {
   }
 
   /**
-   * X / Y indices for tile given by that quadstr string handle
+   * I / J indices for tile given by that quadstr string handle
    *
    * @param   quadstr
-   * @return  { tile_x, tile_y }
+   * @return  { tile_i, tile_j }
    */
-  public static int[] quadstrToTileXY(String quadstr) {
-    return quadkeyToTileXY( quadstrToQuadkey(quadstr) );
+  public static int[] quadstrToTileIJ(String quadstr) {
+    return quadkeyToTileIJ( quadstrToQuadkey(quadstr) );
   }
 
   /**
-   * X / Y indices and zoom level for tile given by that quadstr string handle
+   * I / J indices and zoom level for tile given by that quadstr string handle
    *
    * @param   quadstr
-   * @return  { tile_x, tile_y }
+   * @return  { tile_i, tile_j }
    */
-  public static int[] quadstrToTileXYZ(String quadstr) {
-    return quadkeyToTileXYZ( quadstrToQuadkey(quadstr), quadstrToZl(quadstr) );
-  }
-
-  /****************************************************************************
-   *
-   * Pixel px_x / px_y Concerns
-   *
-   */
-
-  /**
-   * Determines map width and height in pixels at a specified zoom level --
-   * that is, the number of tiles across and down. For example, at zoom level
-   * 3 there are 8 tiles across and 8 down, making 2,048 pixels across and down.
-   *
-   * @param zl
-   *            zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return The map width and height in pixels
-   */
-  public static int mapPixelSize(final int zl) {
-    return TILE_PIXEL_SIZE << zl;
-  }
-
-  /**
-   * Pixel px_x/px_y indices for upper-left pixel of given tile
-   *
-   * @param tile_x   Tile X index
-   * @param tile_y   Tile Y index
-   * @return         { px_x, px_y }
-   */
-  public static int[] tileXYToPixelXY(final int tile_x, final int tileY) {
-    int[] px_xy = { tile_x * TILE_PIXEL_SIZE, tileY * TILE_PIXEL_SIZE };
-    return px_xy;
-  }
-
-  /**
-   * Tile XY coordinates of the tile containing the specified pixel.
-   *
-   * @param px_x    Pixel X coordinate
-   * @param px_y    Pixel Y coordinate
-   * @return        { tile_x, tile_y }
-   */
-  public static int[] pixelXYToTileXY(final int px_x, final int px_y) {
-    int[] tile_xy = { px_x / TILE_PIXEL_SIZE, px_y / TILE_PIXEL_SIZE };
-    return tile_xy;
+  public static int[] quadstrToTileIJZ(String quadstr) {
+    return quadkeyToTileIJZ( quadstrToQuadkey(quadstr), quadstrToZl(quadstr) );
   }
 
 
@@ -745,10 +715,10 @@ public final class QuadkeyUtils {
   }
 
   /**
-   * Highest tile_x or tile_y index at given zoom level (rightmost / bottomest)
+   * Highest tile_i or tile_j index at given zoom level (rightmost / bottomest)
    *
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        The map width and height in pixels
+   * @return        The map width and height in tiles
    */
   public static int maxTileIdx(int zl) {
     return mapTileSize(zl) - 1;
@@ -767,8 +737,8 @@ public final class QuadkeyUtils {
   /**
    *
    * Lookup table for converting a byte's worth of tile indices to the
-   * corresponding quadkey bits. To convert Y indices, shift the result left by
-   * one; to convert X indices use as-is. Thanks Sean Eron Anderson
+   * corresponding quadkey bits. To convert J indices, shift the result left by
+   * one; to convert I indices use as-is. Thanks Sean Eron Anderson
    * (https://graphics.stanford.edu/~seander/bithacks.html#InterleaveTableLookup)
    * and Harold of bitmath (http://bitmath.blogspot.com/2012_11_01_archive.html)
    */
@@ -792,8 +762,8 @@ public final class QuadkeyUtils {
   };
 
   /**
-   * X index (i.e. the even (lsb, lsb+2, ...) bits) of the given number.
-   * To find the Y index, supply the quadkey shifted right by one bit.
+   * I index (i.e. the even (lsb, lsb+2, ...) bits) of the given number.
+   * To find the J index, supply the quadkey shifted right by one bit.
    */
   private static int uninterleaveBits(long num) {
     num =  num                & 0x5555555555555555L;

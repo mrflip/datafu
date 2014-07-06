@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package datafu.pig.geo;
 
 import java.util.Iterator;
@@ -22,8 +39,8 @@ import com.esri.core.geometry.Point;
 public class Quadtile {
   private final long qk;
   private final int  zl;
-  private final int  tx;
-  private final int  ty;
+  private final int  ti;
+  private final int  tj;
   //
   private Envelope envelope;
   private Geometry fragment;
@@ -37,16 +54,16 @@ public class Quadtile {
   public Quadtile(long quadkey, int zoomlvl) {
     this.qk = quadkey;
     this.zl = zoomlvl;
-    int[] tile_xy = QuadkeyUtils.quadkeyToTileXY(quadkey);
-    this.tx = tile_xy[0];
-    this.ty = tile_xy[1];
+    int[] tile_ij = QuadkeyUtils.quadkeyToTileIJ(quadkey);
+    this.ti = tile_ij[0];
+    this.tj = tile_ij[1];
   }
 
-  public Quadtile(int tile_x, int tile_y, int zoomlvl) {
-    this.tx = tile_x;
-    this.ty = tile_y;
+  public Quadtile(int tile_i, int tile_j, int zoomlvl) {
+    this.ti = tile_i;
+    this.tj = tile_j;
     this.zl = zoomlvl;
-    this.qk = QuadkeyUtils.tileXYToQuadkey(tx, ty);
+    this.qk = QuadkeyUtils.tileIJToQuadkey(ti, tj);
   }
 
   public Quadtile(String quadstr) {
@@ -108,27 +125,27 @@ public class Quadtile {
     if (envelope != null) { return envelope; } // memoize
     double[] coords = w_s_e_n();
     this.envelope = new Envelope(coords[0], coords[1] + 1e-6, coords[2] - 1e-6, coords[3]);
-    // this.envelope = new Envelope(tile_x, tile_y, tile_x+1, tile_y+1);
+    // this.envelope = new Envelope(tile_i, tile_j, tile_i+1, tile_j+1);
     return envelope;
   }
 
   public double[] w_s_e_n() {
-    return QuadkeyUtils.tileXYToCoords(tx, ty, zl);
+    return QuadkeyUtils.tileIJToMercatorWSEN(ti, tj, zl);
   }
 
   public String quadstr() { return QuadkeyUtils.quadkeyToQuadstr(qk, zl); }
   public long   quadkey() { return qk; }
   public int    zoomlvl() { return zl; }
-  public int    tileX()   { return tx; }
-  public int    tileY()   { return ty; }
-  public int[]  tileXY()  { int[] tile_xy  = { tx, ty } ;     return tile_xy;  }
-  public int[]  tileXYZ() { int[] tile_xyz = { tx, ty, zl } ; return tile_xyz; }
+  public int    tileI()   { return ti; }
+  public int    tileJ()   { return tj; }
+  public int[]  tileIJ()  { int[] tile_ij  = { ti, tj } ;     return tile_ij;  }
+  public int[]  tileIJZ() { int[] tile_ijz = { ti, tj, zl } ; return tile_ijz; }
 
   public String toString() {
     double[] coords = w_s_e_n();
     return String.format("%s %-10s@%2d [%4d %4d] (%6.1f %5.1f %6.1f %5.1f)",
       // this.getClass().getSimpleName(), // TODO: probably should be class, but screen space
-      "QT", quadstr(), zl, tx, ty, coords[0], coords[1], coords[2], coords[3]);
+      "QT", quadstr(), zl, ti, tj, coords[0], coords[1], coords[2], coords[3]);
   }
 
 
@@ -234,136 +251,3 @@ public class Quadtile {
   }
 
 }
-
-
-//
-//   public static List<String> childrenContaining(Geometry geom, String parent) {
-//     List<String> children = childrenFor(parent);
-//     List<String> returnChildren = new ArrayList<String>();
-//     for (String child : children) {
-//       Polygon quadstrBox = quadstrToBox(child);
-//       if (quadstrBox.intersects(g)) {
-//         returnChildren.add(child);
-//       }
-//     }
-//     return returnChildren;
-//   }
-//
-//
-//   /**
-//      Recursively search through quadstr for overlapping with the passed in geometry.
-//   */
-//   public static boolean checkQuadstr(String quadstr, DataBag returnKeys, Geometry g, int maxDepth) {
-//     // Compute bounding box for the tile
-//     Polygon keyBox = quadstrToBox(quadstr);
-//     if (returnKeys.size() > MAX_TILES) return false;
-//
-//     if (keyBox.intersects(g)) {
-//       if (quadstr.length() >= maxDepth ) {
-//         Tuple quadstrTuple = tupleFactory.newTuple(quadstr);
-//         returnKeys.add(quadstrTuple);
-//         return true;
-//       }
-//       List<String> children = childrenFor(quadstr);
-//
-//       Geometry cut = g.intersection(keyBox);
-//       cut = (cut.getGeometryType().equals(GEOM_COLLEC) ? cut.getEnvelope() : cut );
-//
-//       for (String child : children) {
-//         checkQuadstr(child, returnKeys, cut, maxDepth);
-//       }
-//     }
-//     return true;
-//   }
-
-//   /* ***************************************************************************
-//    *
-//    * Geometry Methods
-//    *
-//    */
-//
-//   public Geometry geomExtent() {
-//   }
-//
-//   public List<Quadtile> neighborhoodList() {
-//   }
-//
-//   public Quadtile[] neighborhood_9() {
-//   }
-//
-//   public Quadtile[] descendants(int child_zl) throws RuntimeException {
-//     int zl_diff = child_zl - zl;
-//     if (zl_diff < 0) { throw new RuntimeException("Asked for children at higher zoom level than tile: tile is "+zl+"; requested "+child_zl); }
-//
-//     Quadtile[] result = [];
-//     long qk_base = quadkey << zl_diff;
-//     for (offset = 0; offset < (1 << zl_diff); offset++) {
-//       result[i] = new Quadtile(qk_base | offset);
-//     }
-//     return result;
-//   }
-//
-//   public Quadtile[] children() {
-//     return descendants(zl+1);
-//   }
-//
-//   /**
-//      The desired behavior is to return an empty string if the geometry is
-//      too large to be inside even the lowest resolution quadstr.
-//   */
-//   public static String quadtileCovering(Geometry g, int zl) {
-//     Point centroid = g.getCentroid();
-//     for (int i = zl; i > 0; i--) {
-//       String  quadstr    = geoPointToQuadstr(centroid.getX(), centroid.getY(), i);
-//       Polygon quadstrBox = quadstrToBox(quadstr);
-//       if (quadstrBox.contains(g)) return quadstr;
-//     }
-//     return "";
-//   }
-//
-//   /* ***************************************************************************
-//    *
-//    * Handles and coordinates
-//    *
-//    */
-//
-//   public int getTileX() {
-//     if (tile_x == null) {
-//       int[] tile_xy = QuadkeyUtils.quadkeyToTileXY(quadkey);
-//       this.tile_x = tile_xy[0];
-//       this.tile_y = tile_xy[0];
-//     }
-//     return tile_x;
-//   }
-//
-//   /**
-//    * Returns the corner WGS84 coordinates of the tile:
-//    *
-//    * [west, south, east, north​] (i.e. min_x, min_y, max_x, max_y)
-//    *
-//    * @return west, south, east, north coordinates
-//    */
-//   public double[] cornerCoords() {
-//   }
-//
-//
-//
-//   /**
-//      Get all tiles overlapping the given geometry at the specified zoom level.
-//   */
-//   public static DataBag allTilesFor(Geometry g, int maxDepth) {
-//     String       container   = containingQuadtile(g, maxDepth);
-//     List<String> keysToCheck = childrenFor(container);
-//     DataBag      returnKeys  = bagFactory.newDefaultBag();
-//
-//     for (String key : keysToCheck) {
-//       boolean fullySearched = checkQuadstr(key, returnKeys, g, maxDepth);
-//       // If there are ever too many tiles, stop everything and return empty bag
-//       if (!fullySearched) {
-//         System.out.println("Too many tiles! ["+returnKeys.size()+"]");
-//         returnKeys.clear();
-//         return returnKeys;
-//       }
-//     }
-//     return returnKeys;
-//   }
