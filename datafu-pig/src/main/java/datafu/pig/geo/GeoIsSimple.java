@@ -17,27 +17,29 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoProcessFunc;
-import com.esri.core.geometry.Geometry;
+import datafu.pig.util.GeoScalarFunc;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-import com.esri.core.geometry.Operator;
-import com.esri.core.geometry.OperatorFactoryLocal;
-import com.esri.core.geometry.OperatorBuffer;
+/**
+ *
+ * Returns 1 if the geometry is simple, 0 if it is not.
+ *
+ * A simple geometry has no anomalous geometric points, such as self
+ * intersection or self tangency. See the "Simple feature access - Part 1"
+ * document (OGC 06-103r4) for meaning of "simple" for each geometry
+ * type. (Note: that document is not simple.)
+ * 
+ * The method has O(n log n) complexity when the input geometry is simple.
+ * For non-simple geometries, it terminates immediately when the first issue is
+ * encountered.
+ * 
+ */
+public class GeoIsSimple extends GeoScalarFunc<Integer> {
 
-public class GeoBuffer extends GeoProcessFunc {
-  OperatorBuffer operator;
-  double         bufferDistance;
-  
-  public GeoBuffer(String options) {
-    this.bufferDistance = Double.parseDouble(options);
-    this.operator = (OperatorBuffer)OperatorFactoryLocal.getInstance()
-      .getOperator(Operator.Type.Buffer);
-  }
-  
-  public Geometry processGeom(OGCGeometry geom) {
-    Geometry result = operator.execute(geom.getEsriGeometry(),
-      geom.getEsriSpatialReference(), bufferDistance, null);
+  public Integer processGeom(OGCGeometry geom) {
+    //
+    Integer result = (geom.isSimple() ? 1 : 0);
+    //
     return result;
   }
 }

@@ -17,38 +17,18 @@
  */
 package datafu.pig.geo;
 
-import java.io.IOException;
-import org.apache.pig.data.DataType;
-import org.apache.pig.impl.logicalLayer.schema.Schema;
-
-import datafu.pig.util.SimpleEvalFunc;
-
-import datafu.pig.geo.GeometryUtils;
-import com.esri.core.geometry.Envelope;
+import datafu.pig.util.GeoProcessFunc;
+import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-public class GeoEnvelope extends SimpleEvalFunc<String>
-{
-  public String call(String payload) {
-    OGCGeometry geom = GeometryUtils.payloadToGeom(payload);
-    if (geom == null){ return null; }
-    try {
-      //
-      Envelope env = new Envelope();
-      geom.getEsriGeometry().queryEnvelope(env);
-      //
-      return GeometryUtils.pigPayload(env);
-    }
-    catch (Exception err) {
-      String msg = "Can't find envelope ("+err.getMessage()+"): "+GeometryUtils.printablePayload(payload);
-      log.error(msg);
-      throw new RuntimeException(msg, err);
-    }
-  }
+import com.esri.core.geometry.Envelope;
 
-  @Override
-  public Schema outputSchema(Schema input)
-  {
-    return new Schema(new Schema.FieldSchema("envelope", DataType.CHARARRAY));
+public class GeoEnvelope extends GeoProcessFunc
+{
+  public Envelope processGeom(OGCGeometry geom) {
+    Envelope result = new Envelope();
+    geom.getEsriGeometry().queryEnvelope(result);
+    //
+    return result;
   }
 }

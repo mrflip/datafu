@@ -17,22 +17,20 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoProcessorFunc;
+import datafu.pig.util.GeoProcessFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
 import com.esri.core.geometry.MultiPath;
 
-public class GeoEndPoint extends GeoProcessorFunc {
-  public static String opName() { return "end_point"; }
+public class GeoEndPoint extends GeoProcessFunc {
 
   public Geometry processGeom(OGCGeometry geom) {
     if (geom.geometryType().equals("Point") ||
         geom.geometryType().equals("MultiPoint")) {
       return null;
     }
-      
-      
+    //
     MultiPath lines = (MultiPath)(geom.getEsriGeometry());
     Geometry result = (Geometry)lines.getPoint(lines.getPointCount()-1);
     return result;

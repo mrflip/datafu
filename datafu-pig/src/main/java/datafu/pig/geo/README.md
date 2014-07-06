@@ -81,23 +81,21 @@
 
 ### geom -> number
 
-* GeoDistance
-* GeodesicDistanceOnWGS84
 * GeoArea
-* GeodeticLength
 * GeoDimensionality
 * GeoSimpleLength
 * GeoNumGeometries
 * GeoNumInteriorRing
 * GeoNumPoints
 
-* GeoCoordX
-* GeoCoordY
-* GeoCoordZ
-* GeoCoordM
-
 * MaxX / MaxY / MaxZ / MaxM
 * MinX / MinY / MinZ / MinM
+
+* (GeoCoordX / GeoCoordY / GeoCoordZ / GeoCoordM)
+* (GeoDistance)
+* (GeodesicDistanceOnWGS84)
+* (GeodeticLength)
+
 
 ### Other
 

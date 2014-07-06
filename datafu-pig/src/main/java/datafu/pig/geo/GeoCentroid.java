@@ -17,15 +17,14 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoProcessorFunc;
+import datafu.pig.util.GeoProcessFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Point;
 
-public class GeoCentroid extends GeoProcessorFunc {
-  public static String opName() { return "centroid"; }
+public class GeoCentroid extends GeoProcessFunc {
   
   public Geometry processGeom(OGCGeometry geom) {
     // Geometry.Type geom_type = geom.getType();

@@ -17,14 +17,14 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoDoubleFunc;
+import datafu.pig.util.GeoScalarFunc;
 import datafu.pig.geo.LogUtils;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
 import com.esri.core.geometry.Envelope;
 
-public class GeoMinCoord extends GeoDoubleFunc<Double> {
+public class GeoMinCoord extends GeoScalarFunc<Double> {
   public MinHandler handler;
   public String dimension_name;
   

@@ -17,14 +17,14 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoDoubleFunc;
+import datafu.pig.util.GeoScalarFunc;
 import datafu.pig.geo.LogUtils;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
 import com.esri.core.geometry.Envelope;
 
-public class GeoMaxCoord extends GeoDoubleFunc<Double> {
+public class GeoMaxCoord extends GeoScalarFunc<Double> {
   public MaxHandler handler;
   public String dimension_name;
   

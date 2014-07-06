@@ -33,7 +33,7 @@ import com.esri.core.geometry.ogc.OGCGeometry;
  * Process a geometry into a value (double)
  *
  */
-public abstract class GeoDoubleFunc<T> extends SimpleEvalFunc<T>
+public abstract class GeoScalarFunc<T> extends SimpleEvalFunc<T>
 {
   abstract public T processGeom(OGCGeometry geom);
 
@@ -57,10 +57,21 @@ public abstract class GeoDoubleFunc<T> extends SimpleEvalFunc<T>
     }
   }
 
+  //
+  // TODO: FIXME: This returns DOUBLE for everything
+  //
+  
   @Override
   public Schema outputSchema(Schema input)
   {
     String field_name = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, opName());
-    return new Schema(new Schema.FieldSchema(field_name, DataType.DOUBLE));
+    //
+    // FIXME: Recovering the type from the template fails horribly -- and in
+    // fact only every other test run (?!). This makes it work, but the ones
+    // that return an integer will have surprising types for the moment
+    byte type = DataType.DOUBLE;
+    //
+    //
+    return new Schema(new Schema.FieldSchema(field_name, type));
   }
 }

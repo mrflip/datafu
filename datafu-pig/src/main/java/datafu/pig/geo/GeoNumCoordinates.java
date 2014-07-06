@@ -17,27 +17,24 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoProcessFunc;
-import com.esri.core.geometry.Geometry;
+import datafu.pig.util.GeoScalarFunc;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-import com.esri.core.geometry.Operator;
-import com.esri.core.geometry.OperatorFactoryLocal;
-import com.esri.core.geometry.OperatorBuffer;
+/**
+ *
+ * Number of spatial coordinates used to represent geometries: 2 for x/y, 3 for
+ * x/y/z, and so forth. See also the GeoDimensionality UDF, which gives
+ * dimensionality (0 for point, 1 for line, etc).
+ *
+ * @see GeoDimensionality
+ *
+ */
+public class GeoNumCoordinates extends GeoScalarFunc<Integer> {
 
-public class GeoBuffer extends GeoProcessFunc {
-  OperatorBuffer operator;
-  double         bufferDistance;
-  
-  public GeoBuffer(String options) {
-    this.bufferDistance = Double.parseDouble(options);
-    this.operator = (OperatorBuffer)OperatorFactoryLocal.getInstance()
-      .getOperator(Operator.Type.Buffer);
-  }
-  
-  public Geometry processGeom(OGCGeometry geom) {
-    Geometry result = operator.execute(geom.getEsriGeometry(),
-      geom.getEsriSpatialReference(), bufferDistance, null);
+  public Integer processGeom(OGCGeometry geom) {
+    //
+    Integer result = geom.coordinateDimension();
+    //
     return result;
   }
 }

@@ -17,7 +17,7 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoDoubleFunc;
+import datafu.pig.util.GeoScalarFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
@@ -25,7 +25,7 @@ import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.MultiPoint;
 import com.esri.core.geometry.Polygon;
 
-public class GeoNumPoints extends GeoDoubleFunc<Integer> {
+public class GeoNumPoints extends GeoScalarFunc<Integer> {
 
   public Integer processGeom(OGCGeometry geom) {
     Integer result;

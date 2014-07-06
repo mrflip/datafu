@@ -47,12 +47,9 @@ public class GeometryUtils {
     }
   }
 
-
   private static int getWktExportFlag(Geometry esGeom){
     Geometry.Type type = esGeom.getType();
     int           dim  = esGeom.getDimension();
-
-    dump("%-10s %3d | %s", type, dim, esGeom);
 
     switch (type){
     case Polygon:

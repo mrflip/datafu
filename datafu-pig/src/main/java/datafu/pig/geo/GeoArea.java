@@ -17,16 +17,16 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoDoubleFunc;
+import datafu.pig.util.GeoScalarFunc;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-public class GeoArea extends GeoDoubleFunc<Double> {
+
+public class GeoArea extends GeoScalarFunc<Double> {
 
   public Double processGeom(OGCGeometry geom) {
     //
-    Double area = geom.getEsriGeometry().calculateArea2D();
+    Double result = geom.getEsriGeometry().calculateArea2D();
     //
-    return area;
+    return result;
   }
-  
 }

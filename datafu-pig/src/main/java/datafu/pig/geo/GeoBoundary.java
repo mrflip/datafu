@@ -17,14 +17,13 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoProcessorFunc;
+import datafu.pig.util.GeoProcessFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
 // TODO: Should this use OperatorBoundary?
 
-public class GeoBoundary extends GeoProcessorFunc {
-  public static String opName() { return "boundary"; }
+public class GeoBoundary extends GeoProcessFunc {
 
   public Geometry processGeom(OGCGeometry geom) {
     //

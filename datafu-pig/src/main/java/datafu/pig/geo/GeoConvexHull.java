@@ -17,7 +17,7 @@
  */
 package datafu.pig.geo;
 
-import datafu.pig.util.GeoProcessorFunc;
+import datafu.pig.util.GeoProcessFunc;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
@@ -36,9 +36,9 @@ import com.esri.core.geometry.OperatorConvexHull;
  * Polygon    -- If more than one path or if the path isn't already convex, computes and returns the convex hull polygon. Otherwise, returns the same polygon.
  *
  */
-public class GeoConvexHull extends GeoProcessorFunc {
+public class GeoConvexHull extends GeoProcessFunc
+{
   OperatorConvexHull operator;
-  public static String opName() { return "boundary"; }
 
   public GeoConvexHull() {
     this.operator = (OperatorConvexHull)OperatorFactoryLocal.getInstance()

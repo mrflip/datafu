@@ -22,6 +22,7 @@ import org.apache.pig.data.DataType;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
 
 import datafu.pig.util.SimpleEvalFunc;
+import com.google.common.base.CaseFormat;
 
 import datafu.pig.geo.GeometryUtils;
 import com.esri.core.geometry.Geometry;
@@ -29,12 +30,16 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 
 /**
  *
- * Process a geometry into a new geometry
+ * Process a geometry into a value (double)
+ *
  */
-abstract public class GeoProcessorFunc extends SimpleEvalFunc<String>
+public abstract class GeoProcessFunc extends SimpleEvalFunc<String>
 {
-  public static String opName(){ return "foo"; };
   abstract public Geometry processGeom(OGCGeometry geom);
+
+  protected String opName() {
+    return this.getClass().getSimpleName().replaceFirst("^Geo", "");
+  }
 
   public String call(String payload) {
     OGCGeometry geom = GeometryUtils.payloadToGeom(payload);
@@ -42,7 +47,6 @@ abstract public class GeoProcessorFunc extends SimpleEvalFunc<String>
     //
     try {
       Geometry result = processGeom(geom);
-      //
       return GeometryUtils.pigPayload(result);
     }
     catch (Exception err) {
@@ -57,8 +61,10 @@ abstract public class GeoProcessorFunc extends SimpleEvalFunc<String>
   @Override
   public Schema outputSchema(Schema input)
   {
-    return new Schema(new Schema.FieldSchema(opName(), DataType.CHARARRAY));
+    String field_name = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, opName());
+    return new Schema(new Schema.FieldSchema(field_name, DataType.CHARARRAY));
   }
+}
 
 // import com.esri.core.geometry.Operator;
 // import com.esri.core.geometry.OperatorFactoryLocal;
@@ -84,6 +90,3 @@ abstract public class GeoProcessorFunc extends SimpleEvalFunc<String>
   //   // OFFSET,
   //   // SIMPLIFY,
   //   // START_POINT,
-  
-
-}
