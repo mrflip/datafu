@@ -1,5 +1,4 @@
-
-## WORK IN PROGRESS
+## Geospatial Pig -- WORK IN PROGRESS
 
 This is totally a work in progress.
 
@@ -11,44 +10,69 @@ In fact I don't really know which repo to put it into.
 
 Anyway datafu builds really fast and has a nice test rig. So that's where I'm hacking it out.
 
+### Things that you should know
+
+* Only scattered examples from the below work. Enough to prove it out.
+
+* Shapes are serialized using Well-Known Text. i.e. verbose strings that lose metadata and are expensive to assemble. Does that sound inefficient? It surely is. Testing sure is easier though
+
+* This might only work against my fork of the Esri geometry API: https://github.com/Esri/geometry-api-java/pulls
+
+* I couldn't get the output_schema of GeoScalarFunc to figure out what its template type was. So you can have any scalar function you'd like as long as it returns a double.
 
 
 
-### GeoJoin
 
-* spatial join:
-  - Takes two bags;
+### Families of UDFs
+
+### Supporting Spatial join
+
+* Spatial join on map side:
+  - (_works_) decompose shape into quadtiles that cover it. Takes the collection of tiles covering the shape at the specified coarse zoom level of detail, and recursively decomposes them into smaller quadtiles until either the quadtile is completely contained in the shape or the finest zoom level is reached.
+  - (**TODO**) make UDF
+  - cogroup on quadkey at coarsest zoom level (so everything within those largest-area tiles will land on the same reducer)
+
+* (**TODO**) generic spatial join on reduce side: 
+  - Takes two bags of shapes on the same quadtile;
   - indexes first into a quadtree
   - passes second one through quadtree
   - all candidate pairs are emitted
 
-* Spatial join and filter:
-  - spatial group
-  - taking the output and applying an operator
+* (**TODO**) alternative spatial join
+  - secondary sort on full quadkey, so that all say ZL-6 tiles in set A and the corresponding tiles at ZL-6, ZL-7, ... tiles in set B can be paired off
+  - this works when the elements of set A do not overlap with each other
+
+* (**TODO**) Spatial join and filter:
+  - either spatial group
+  - take the output and immediately apply an operator, eg intersects, before keeping the object around in a bag.
+
+*
+
+### Quadtile
+
+* _works_ QuadtileContaining (geom)
+* _works_ QuadDecomp       --  constant zl
+* _works_ QuadMultiDecomp  --  in zl range (stop if a quad is fully contained)
+* _works_ Quadkey, Quadstr
+* _works_ TileIJ
+* _works_ TileXY
 
 ### GeoProcess -- geom -> geom
 
-* GeoBuffer	     (geom)
-* GeoOffset	     (geom)
-* GeoConvexHull	     (geom)
-* GeoBoundary	     (geom)
-* GeoSimplify	     (geom)
+
 * GeoDensify	     (geom)
-* GeoGeneralize      (envelope becomes polygon)
 * GeoExteriorRing
-* GeoEnvelope
-
-* GeoCentroid
-* GeoEndpoint
-* GeoStartpoint
+* GeoGeneralize      (envelope becomes polygon)
 * GeoNthPoint
-
-* QuadtileContaining (geom)
-* QuadDecomp       --  constant zl
-* QuadMultiDecomp  --  in zl range (stop if a quad is fully contained)
-* Quadkey, Quadstr
-* TileIJ
-* TileXY
+* GeoOffset	     (geom)
+* GeoSimplify	     (geom)
+* GeoStartpoint
+* _udf_ GeoBoundary	     (geom)
+* _udf_ GeoBuffer	     (geom)
+* _udf_ GeoCentroid
+* _udf_ GeoConvexHull	     (geom)
+* _udf_ GeoEndpoint
+* _udf_ GeoEnvelope
 
 ### GeoProcessBag --  {bagGeoms} -> geom
 
@@ -57,17 +81,17 @@ Anyway datafu builds really fast and has a nice test rig. So that's where I'm ha
 * GeoOffset	    (bag)
 * GeoBoundary	    (bag)
 
-### GeoAction  -- (gA, gB) -> geom
+### GeoCombine  -- (gA, gB) -> geom
 
-* Union		    (gA,gB)
-* GeoDifference	    (gA,gB)
-* GeoXor	    (gA,gB)
-* GeoIntersection   (gA,gB)
+* _udf_ Union	
+* _udf_ GeoDifference
+* _udf_ GeoXor	   
+* _udf_ GeoIntersection
+* GeoClip
+* GeoCut
+* Proximity (getNearestCoordinate, getNearestVertex, getNearestVertices)
 
-* GeoClip	    (geom, env)
-* GeoCut	    (geom, polyline)
-
-### GeoAction -- (geom, {bagGeoms}) -> geom
+### GeoCombineBag -- (geom, {bagGeoms}) -> geom
 
 * GeoIntersection   (geom, {bag}))
 * GeoDifference	    (geom, {bag})
@@ -82,62 +106,50 @@ Anyway datafu builds really fast and has a nice test rig. So that's where I'm ha
 * IsGeoOverlaps
 * IsGeoTouches
 * IsGeoWithin
-
-* With bag, All? / None? / Any?
+* IsGeoRelating  (takes a DE-9IM relation)
+* With bag: All? / None? / Any? have relation
 * With bag, filter for it
+* GeoDistance
 
-### GeoTest -- geom -> boolean
+* GeoProject
+* GeoTransform
 
-* IsGeoSimple
+### GeoIsSomething -- geom -> boolean
+
+* _udf_ IsGeoSimple
 * IsGeoClosed
 * IsGeoEmpty
 * IsGeoRing
 * IsGeoEnvIntersects
 
-### geom -> number
+### GeoScalar -- geom -> number
 
-* GeoArea
-* GeoDimensionality
-* GeoSimpleLength
+* GeoCoordX / GeoCoordY / GeoCoordZ / GeoCoordM
 * GeoNumGeometries
 * GeoNumInteriorRing
 * GeoNumPoints
-
-* MaxX / MaxY / MaxZ / MaxM
-* MinX / MinY / MinZ / MinM
-
-* (GeoCoordX / GeoCoordY / GeoCoordZ / GeoCoordM)
-* (GeoDistance)
-* (GeodesicDistanceOnWGS84)
-* (GeodeticLength)
-
+* GeoSimpleLength
+* _udf_ GeoArea
+* _udf_ GeoDimensionality
+* _udf_ GeoNumCoordinates
+* _udf_ MaxX / MaxY / MaxZ / MaxM
+* _udf_ MinX / MinY / MinZ / MinM
+* GeodesicDistanceOnWGS84
+* GeodeticLength
 
 ### Other
 
-* GeoPoint	    (xx,yy)
+* _udf_ GeoPoint	    (xx,yy)
 * `GeoBBox	    (min_x, min_y, max_x, max_y)` -- envelope object from coords
 * SetSpatialRefId
 * GetSpatialRefID
 * GeoRelatingMatrix (a tuple of the DE-9IM matrix)
-* IsGeoRelating  (takes a DE-9IM relation)
-
 * GeoFlattenMultigeom -- turns a Multi-whatever into a bag of whatevers
-
 
 ### Conversion
 
-* ToGeoJson
-* ToWellKnownText
-
-
-
-### Not yet:
-
-* rasterize
-* GeoProject
-* GeoTransform
-* proximity (getNearestCoordinate, getNearestVertex, getNearestVertices)
-
+* _udf_ ToGeoJson
+* _udf_ ToWellKnownText
 
 
 ```
