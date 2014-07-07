@@ -116,10 +116,9 @@ public final class QuadkeyUtils {
     double   tile_x   = mapsize * gx;
     double   tile_y   = mapsize * gy;
     //
-    int[]    tile_ij  = {
+    return new int[] {
       (int) NumberUtils.snap(Math.floor(tile_x), 0, mapsize-1),
       (int) NumberUtils.snap(Math.floor(tile_y), 0, mapsize-1) };
-    return tile_ij;
   }
 
   /**
@@ -141,8 +140,7 @@ public final class QuadkeyUtils {
     ti = NumberUtils.snap(ti, 0, mapsize);
     tj = NumberUtils.snap(tj, 0, mapsize);
     //
-    double[] grid_xy = { 1.0*ti / mapsize, 1.0*tj / mapsize };
-    return grid_xy;
+    return new double[] { 1.0*ti / mapsize, 1.0*tj / mapsize };
   }
 
   /****************************************************************************
@@ -157,9 +155,9 @@ public final class QuadkeyUtils {
   public static long tileIJToQuadkey(int ti, int tj) {
     // convert it 8 bits a piece: x evens, y odds
     long qk =
-      MORTON_LUT[ ti        & 0xff]       | MORTON_LUT[ tj        & 0xff] << 1  | 
-      MORTON_LUT[(ti >>  8) & 0xff] << 16 | MORTON_LUT[(tj >>  8) & 0xff] << 17 | 
-      MORTON_LUT[(ti >> 16) & 0xff] << 32 | MORTON_LUT[(tj >> 16) & 0xff] << 33 | 
+      MORTON_LUT[ ti        & 0xff]       | MORTON_LUT[ tj        & 0xff] << 1  |
+      MORTON_LUT[(ti >>  8) & 0xff] << 16 | MORTON_LUT[(tj >>  8) & 0xff] << 17 |
+      MORTON_LUT[(ti >> 16) & 0xff] << 32 | MORTON_LUT[(tj >> 16) & 0xff] << 33 |
       MORTON_LUT[(ti >> 24) & 0xff] << 48 | MORTON_LUT[(tj >> 24) & 0xff] << 49 ;
     return qk;
   }
@@ -171,8 +169,7 @@ public final class QuadkeyUtils {
    * @return { tile_i, tile_j }
    */
   public static int[] quadkeyToTileIJ(long qk) {
-    int[] res = { uninterleaveBits(qk), uninterleaveBits(qk >> 1) };
-    return res;
+    return new int[] { uninterleaveBits(qk), uninterleaveBits(qk >> 1) };
   }
   /**
    * Tile I/J indices and zoom level of a tile given by its quadkey and zoom level.
@@ -182,8 +179,7 @@ public final class QuadkeyUtils {
    * @return { tile_i, tile_j, zoom level }
    */
   public static int[] quadkeyToTileIJZ(long qk, int zl) {
-    int[] res = { uninterleaveBits(qk), uninterleaveBits(qk >> 1), zl };
-    return res;
+    return new int[] { uninterleaveBits(qk), uninterleaveBits(qk >> 1), zl };
   }
 
   /**
@@ -212,8 +208,7 @@ public final class QuadkeyUtils {
   /** Quadkeys of each chiild tile at one finer zoom level */
   public static Long[] quadkeyChildren(long qk) {
     Long cqk = qk << 2;
-    Long[] children = { cqk|0, cqk|1, cqk|2, cqk|3 };
-    return children;
+    return new Long[] { cqk|0, cqk|1, cqk|2, cqk|3 };
   }
 
   /** Quadkey directly left of the given quadkey */
@@ -467,7 +462,7 @@ public final class QuadkeyUtils {
     int[] tile_ij = worldToTileIJ(lng, lat, zl, proj);
     return tileIJToQuadkey(tile_ij[0], tile_ij[1]);
   }
-  
+
   public static long worldToQuadkey(double lng, double lat, Projection proj) {
     return worldToQuadkey(lng, lat, MAX_ZOOM_LEVEL, proj);
   }
@@ -530,8 +525,7 @@ public final class QuadkeyUtils {
     double[] rt_dn = tileIJToWorld(ti+1, tj+1, zl, proj);
 
     // [left, bottom, right, top]​ -- [min_x, min_y, max_x, max_y]
-    double[] result = { lf_up[0], rt_dn[1]+EDGE_FUDGE, rt_dn[0]-EDGE_FUDGE, lf_up[1] };
-    return result;
+    return new double[] { lf_up[0], rt_dn[1]+EDGE_FUDGE, rt_dn[0]-EDGE_FUDGE, lf_up[1] };
   }
 
 

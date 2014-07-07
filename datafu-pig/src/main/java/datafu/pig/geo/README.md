@@ -1,4 +1,19 @@
 
+## WORK IN PROGRESS
+
+This is totally a work in progress.
+
+In fact I don't really know which repo to put it into.
+
+* Datafu?
+* https://github.com/Esri/spatial-framework-for-hadoop ?
+* Pig?
+
+Anyway datafu builds really fast and has a nice test rig. So that's where I'm hacking it out.
+
+
+
+
 ### GeoJoin
 
 * spatial join:

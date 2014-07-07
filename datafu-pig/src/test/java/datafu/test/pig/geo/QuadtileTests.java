@@ -22,7 +22,10 @@ package datafu.test.pig.geo;
 import static org.testng.Assert.*;
 import junit.framework.Assert;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Arrays;
+import java.util.ArrayList;
 
 import org.adrianwalker.multilinestring.Multiline;
 import org.apache.pig.data.Tuple;
@@ -240,7 +243,7 @@ public class QuadtileTests extends PigTests
   @Test
   public void mercatorTest() throws Exception
   {
-    Projection.GlobeProjection proj = new Projection.Mercator();    
+    Projection.GlobeProjection proj = new Projection.Mercator();
     double[] special_lngs = {
       proj.min_lng,
       proj.min_lng+QuadkeyUtils.EDGE_FUDGE,
@@ -268,16 +271,35 @@ public class QuadtileTests extends PigTests
         int[] tile_ij    = QuadkeyUtils.worldToTileIJ(special_lngs[lngi], special_lats[latj], zl, proj);
         double[] coords  = QuadkeyUtils.tileIJToWorldWSEN(tile_ij[0], tile_ij[1], zl, proj);
         //
-        System.err.println(String.format("%8d %8d %4d %20.15f %20.15f %20.15f %20.15f %20.15f %20.15f mercatorTest",
+        GeometryUtils.dump("%8d %8d %4d %20.15f %20.15f %20.15f %20.15f %20.15f %20.15f mercatorTest",
             tile_ij[0], tile_ij[1], zl,
             coords[0], special_lngs[lngi], coords[2],
-            coords[1], special_lats[latj], coords[3]));
+            coords[1], special_lats[latj], coords[3]);
       }
-      //     QuadkeyUtils.tileIJToQuadkey(tile_ij[0], tile_ij[1]),
-      //     QuadkeyUtils.quadstrToQuadkey(quadstr),
-      //     QuadkeyUtils.mercatorToQuadkey(lnglat[0], lnglat[1], zl),
     }
   }
+
+  @Test
+  public void aQuadtileDecomposeTest() throws Exception
+  {
+    String test_shape = "POLYGON ((-85 20, -70 20, -70 30, -85 30, -85 20))";
+    //
+    List<Quadtile> qt_list  = Quadtile.quadtilesCovering( OGCGeometry.fromText(test_shape), 4, 8, new Projection.Mercator());
+    //
+    assertQuadtileHandlesMatch(qt_list,
+      // two ZL-6
+      "032023",   "032032",
+      // some ZL-7
+      "0320212",  "0320213",  "0320302",  "0320303",  "0320312",  "0320330",  "0320332",
+      // and ZL-8 all around the edges
+      "03202013", "03202031", "03202033", "03202102", "03202103", "03202112", "03202113",
+      "03202211", "03202213", "03202231", "03202233", "03203002", "03203003", "03203012",
+      "03203013", "03203102", "03203103", "03203112", "03203130", "03203132", "03203310",
+      "03203312", "03203330", "03203332", "03220011", "03220013", "03220100", "03220101",
+      "03220102", "03220103", "03220110", "03220111", "03220112", "03220113", "03221000",
+      "03221001", "03221002", "03221003", "03221010", "03221011", "03221012", "03221013",
+      "03221100", "03221101", "03221102", "03221103", "03221110", "03221112");
+ }
 
   /****************************************************************************
    *
@@ -315,4 +337,25 @@ public class QuadtileTests extends PigTests
   private void assertClose(double exp_ll, double res_ll) {
     assertWithin(exp_ll, res_ll, 1e-9);
   }
+
+  /**
+   *
+   * Asserts that the list of expected quadstr handles matches the list of
+   * handles for the given Quadtiles.
+   *
+   * Assert.assertEquals dumps both lists in full if there is any difference,
+   * which is a hassle in all sorts of ways. This instead reports any elements
+   * of one missing in the other, which is what you want to know.
+   *
+   */
+  private void assertQuadtileHandlesMatch(List<Quadtile> qt_list, String... expected_quadstrs) {
+    List<String> remaining_quadstrs = new ArrayList(Arrays.asList(expected_quadstrs));
+    List<String> missing_quadstrs   = new ArrayList();
+    for (Quadtile qt: qt_list) {
+      if (! remaining_quadstrs.remove(qt.quadstr())) { missing_quadstrs.add(qt.quadstr()); };
+    }
+    Assert.assertEquals(new ArrayList(), remaining_quadstrs);
+    Assert.assertEquals(new ArrayList(), missing_quadstrs);
+  }
+
 }

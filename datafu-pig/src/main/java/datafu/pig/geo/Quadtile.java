@@ -37,7 +37,7 @@ import com.esri.core.geometry.Point;
 
 import datafu.pig.geo.Projection;
 
-public class Quadtile {
+public class Quadtile implements Comparable {
   private final long qk;
   private final int  zl;
   private final int  ti;
@@ -90,12 +90,8 @@ public class Quadtile {
     long qk_rtdn = QuadkeyUtils.worldToQuadkey(env.getXMax(), env.getYMin(), zoomlvl, proj);
     long[] qk_zl = QuadkeyUtils.smallestContaining(qk_lfup, qk_rtdn, zoomlvl);
     Quadtile quadtile = new Quadtile(qk_zl[0], (int)qk_zl[1], proj);
-
-    String geom_str = GeometryEngine.geometryToWkt(env, WktExportFlags.wktExportDefaults);
-
-    GeometryUtils.dump("%d %d %s %s %d %d | %s | %s", qk_lfup, qk_rtdn,
-      QuadkeyUtils.quadkeyToQuadstr(qk_lfup, zoomlvl), QuadkeyUtils.quadkeyToQuadstr(qk_rtdn, zoomlvl),
-      qk_zl[0], qk_zl[1], quadtile, geom_str);
+    //
+    // GeometryUtils.dump("%d %d %s %s %d %d | %s | %s", qk_lfup, qk_rtdn, QuadkeyUtils.quadkeyToQuadstr(qk_lfup, zoomlvl), QuadkeyUtils.quadkeyToQuadstr(qk_rtdn, zoomlvl), qk_zl[0], qk_zl[1], quadtile, geom);
     return quadtile;
   }
 
@@ -152,7 +148,6 @@ public class Quadtile {
       "QT", quadstr(), zl, ti, tj, coords[0], coords[1], coords[2], coords[3]);
   }
 
-
   /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    *
    * Related Quadtiles
@@ -180,7 +175,6 @@ public class Quadtile {
     return new Quadtile(qk_anc, zl_anc, proj);
   }
 
-
   /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    *
    * Decompose Shape
@@ -190,9 +184,13 @@ public class Quadtile {
   /**
    *
    * List of all quadtiles at the given zoom level that intersect the object. The object
-   * will lie completely within the union of the returned tiles; and every returned tile
-   * intersects with the object.
+   * will lie completely within the union of the returned tiles; every returned tile
+   * intersects with the object; the returned tiles do not overlap.
    *
+   * @param esGeom    A shape to decompose
+   * @param zl_coarse The coarsest (i.e. towards 0) tile to return. All tiles will be at or finer than this.
+   * @param zl_fine   The finest  (i.e. towards 30) tile to return. All tiles will be at or coarser than this.
+   * @return list of quadtiles in arbitrary order.
    */
   public static List<Quadtile> quadtilesCovering(Geometry esGeom, int zl_coarse, int zl_fine, Projection projection) {
     Quadtile start_quad = quadtileContaining(esGeom, zl_fine, projection);
@@ -204,28 +202,19 @@ public class Quadtile {
 
   public List<Quadtile> decompose(Geometry geom, int zl_coarse, int zl_fine) {
     List<Quadtile> quads = new ArrayList<Quadtile>();
-    dump("%-20s |  %s", "start", geom);
     addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
     return quads;
-  }
-
-  public void dump(String fmt, Object... args) {
-    fmt = String.format("******\t%30s| %s", this.toString(), fmt);
-    System.err.println(String.format(fmt, args));
   }
 
   // make this be a bag of (quadkey, quadtile, clipped geom) objects
   protected void addDescendantsIntersecting_(List<Quadtile> quads, Geometry geom, int zl_coarse, int zl_fine) {
     // intersect the object with our envelope
     Geometry geom_on_tile = GeometryEngine.intersect(geom, getEnvelope(), null);
-
-    dump("%-20s %2d->%2d %3d %18s %s %s", "Decomposing", zl_coarse, zl_fine, quads.size(), geom,
-      // envelope, geom_on_tile
-      envelope, "");
+    // dump("%-20s %2d->%2d %3d %18s %s %s", "Decomposing", zl_coarse, zl_fine, quads.size(), geom, envelope, geom_on_tile);
 
     if (geom_on_tile.isEmpty()) {
       // intersection is empty: add nothing to the list and return.
-      dump("%-20s %2d->%2d %3d %s", "No intersection", zl_coarse, zl_fine, quads.size(), geom_on_tile);
+      // dump("%-20s %2d->%2d %3d %s", "No intersection", zl_coarse, zl_fine, quads.size(), geom_on_tile);
       return;
       //
     } else if (this.zl  > zl_fine) {
@@ -238,20 +227,30 @@ public class Quadtile {
       // dump("%-20s %2d->%2d %3d", "zl meets finest limit", zl_coarse, zl_fine, quads.size());
       quads.add(this);
       //
-    } else if ((this.zl >= zl_coarse) && GeometryEngine.within(getEnvelope(), geom, null)) {
+    } else if ((this.zl >= zl_coarse) && GeometryEngine.within(getEnvelope(), geom_on_tile, null)) {
       // completely within object: add self, return
-      dump("%-20s %2d->%2d %3d %s contains %s", "contained in shape", zl_coarse, zl_fine, quads.size(), geom_on_tile, getEnvelope());
+      // NOTE: we're trusting that floating-point juju doesn't invalidate
+      //   (A within intersection(A, B)) being the same as (A within B)
+      // dump("%-20s %2d->%2d %3d %s contains %s", "contained in shape", zl_coarse, zl_fine, quads.size(), geom_on_tile, getEnvelope());
       quads.add(this);
       //
     } else {
       // otherwise, decompose, add those tiles.
-      dump("%-20s %2d->%2d %3d %s", "recursing", zl_coarse, zl_fine, quads.size(), geom_on_tile);
       Quadtile[] child_tiles = children();
-      child_tiles[0].addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
-      child_tiles[1].addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
-      child_tiles[2].addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
-      child_tiles[3].addDescendantsIntersecting_(quads, geom, zl_coarse, zl_fine);
+      child_tiles[0].addDescendantsIntersecting_(quads, geom_on_tile, zl_coarse, zl_fine);
+      child_tiles[1].addDescendantsIntersecting_(quads, geom_on_tile, zl_coarse, zl_fine);
+      child_tiles[2].addDescendantsIntersecting_(quads, geom_on_tile, zl_coarse, zl_fine);
+      child_tiles[3].addDescendantsIntersecting_(quads, geom_on_tile, zl_coarse, zl_fine);
     }
+  }
+
+  public int compareTo(Object obj) {
+    return Long.compare(qk, ((Quadtile)obj).quadkey());
+  }
+
+  public void dump(String fmt, Object... args) {
+    fmt = String.format("******\t%30s| %s", this.toString(), fmt);
+    System.err.println(String.format(fmt, args));
   }
 
 }

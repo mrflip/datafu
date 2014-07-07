@@ -22,8 +22,6 @@ package datafu.test.pig.geo;
 import static org.testng.Assert.*;
 import junit.framework.Assert;
 
-import java.util.List;
-
 import org.adrianwalker.multilinestring.Multiline;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.pigunit.PigTest;
@@ -34,11 +32,6 @@ import datafu.test.pig.PigTests;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
-import datafu.pig.geo.QuadkeyUtils;
-import datafu.pig.geo.GeometryUtils;
-import datafu.pig.geo.Quadtile;
-import datafu.pig.geo.Projection;
-
 public class EsriTests extends PigTests
 {
 
@@ -46,37 +39,6 @@ public class EsriTests extends PigTests
    * TODO: add some features to EXAMPLE_FEATURES that are non-simple, and some that are empty
    *
    */
-
-
-  @Test
-  public void quadtileDecomposeTest() throws Exception
-  {
-
-    String[] park_cells = {
-      "POLYGON ((-84.3 31.2, -80.6 24, -66.4 24, -80.1 48.8, -84.3 31.2))",
-      "POLYGON ((-66 29.5, -66 50, -77.1 50, -66 29.5))",
-      "POLYGON ((-80 50, -106 50, -104.4 43.9, -84.3 31.2, -80.1 48.8, -80 50))",
-      "POLYGON ((-80.1 48.8, -66.4 24, -66 24, -66 29.5, -77.1 50, -80 50, -80.1 48.8))",
-      "POLYGON ((-108.3 24, -80.6 24, -84.3 31.2, -104.4 43.9, -108.3 24))",
-      "POLYGON ((-126 29.5, -126 24, -108.3 24, -104.4 43.9, -106 50, -107.7 50, -126 29.5))",
-      "POLYGON ((-107.7 50, -126 50, -126 29.5, -107.7 50))"
-    };
-    String[] cell_envelopes = {
-      "POLYGON ((-84.3 24, -66.4 24, -66.4 48.8, -84.3 48.8, -84.3 24))",
-      "POLYGON ((-77.1 29.5, -66 29.5, -66 50, -77.1 50, -77.1 29.5))",
-      "POLYGON ((-106 31.2, -80 31.2, -80 50, -106 50, -106 31.2))",
-      "POLYGON ((-80.1 24, -66 24, -66 50, -80.1 50, -80.1 24))",
-      "POLYGON ((-108.3 24, -80.6 24, -80.6 43.9, -108.3 43.9, -108.3 24))",
-      "POLYGON ((-126 24, -104.4 24, -104.4 50, -126 50, -126 24))",
-      "POLYGON ((-126 29.5, -107.7 29.5, -107.7 50, -126 50, -126 29.5))"};
-    String test_shape =
-      "POLYGON ((-85 20, -70 20, -70 30, -85 30, -85 20))";
-
-    List<Quadtile> qt_list = Quadtile.quadtilesCovering( OGCGeometry.fromText(test_shape), 4, 7, new Projection.Mercator());
-    for (Quadtile qt: qt_list) {
-      GeometryUtils.dump("got qt: %s", qt);
-    }
-  }
 
   /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    *
