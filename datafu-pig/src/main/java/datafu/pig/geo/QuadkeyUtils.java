@@ -178,7 +178,7 @@ public final class QuadkeyUtils {
    * @param  quadkey handle of a tile
    * @return { tile_i, tile_j, zoom level }
    */
-  public static int[] quadkeyToTileIJZ(long qk, int zl) {
+  public static int[] quadkeyToTileIJ(long qk, int zl) {
     return new int[] { uninterleaveBits(qk), uninterleaveBits(qk >> 1), zl };
   }
 
@@ -356,6 +356,22 @@ public final class QuadkeyUtils {
     return qk_base_4.substring(len - zl, len);
   }
 
+
+  // /**
+  //  * Quadstr string handle (base-4 representation of the quadkey) for the given
+  //  * quadkey and zoom level
+  //  */
+  // public static String quadkeyToPaddedQuadstr(long qk, int zl, int target_zl) {
+  //   String suffix = "";
+  //   if (target_zl > zl) {
+  //   //   qk <<= 2*(target_zl - zl);
+  //     suffix = "********************************".substring(0, target_zl - zl);
+  //   }
+  //   // String qk_base_4 = Long.toString(qk, 4).concat(suffix);
+  //   // return qk_base_4; // .substring(0, target_zl);
+  //   return quadkeyToQuadstr(qk, zl).concat(suffix).substring(0, target_zl);
+  // }
+
   /**
    * Quadstr string handle (base-4 representation of the quadkey) for the given
    * tile i/j indices and zoom level
@@ -404,7 +420,7 @@ public final class QuadkeyUtils {
    * @return  { tile_i, tile_j }
    */
   public static int[] quadstrToTileIJZ(String quadstr) {
-    return quadkeyToTileIJZ( quadstrToQuadkey(quadstr), quadstrToZl(quadstr) );
+    return quadkeyToTileIJ( quadstrToQuadkey(quadstr), quadstrToZl(quadstr) );
   }
 
   /****************************************************************************
@@ -525,7 +541,10 @@ public final class QuadkeyUtils {
     double[] rt_dn = tileIJToWorld(ti+1, tj+1, zl, proj);
 
     // [left, bottom, right, top]​ -- [min_x, min_y, max_x, max_y]
-    return new double[] { lf_up[0], rt_dn[1]+EDGE_FUDGE, rt_dn[0]-EDGE_FUDGE, lf_up[1] };
+    return new double[] { lf_up[0],
+                          rt_dn[1] , // +EDGE_FUDGE,
+                          rt_dn[0] , // -EDGE_FUDGE,
+                          lf_up[1] };
   }
 
 

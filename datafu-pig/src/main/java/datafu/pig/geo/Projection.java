@@ -39,6 +39,12 @@ abstract public class Projection
    *
    */
 
+  /**
+   *
+   * Passes through, no changes.
+   * (FIXME: should this snap results to be in (0.0, 1.0)?)
+   *
+   */
   public static class Identity extends Projection {
 
     public double[] lngLatToGridXY(double lng, double lat) {
@@ -52,6 +58,29 @@ abstract public class Projection
     }
   }
 
+  /**
+   *
+   * Rescales from a scale x scale space to the 1  x 1 space
+   * (FIXME: should this snap results to be in (0.0, 1.0)?)
+   *
+   */
+  public static class Linear extends Projection {
+    public final double scale;
+
+    public Linear(double sc) {
+      this.scale = sc;
+    }
+
+    public double[] lngLatToGridXY(double lng, double lat) {
+      double[] grid_xy = { lng / scale, lat / scale };
+      return grid_xy;
+    }
+
+    public double[] gridXYToLngLat(double grid_x, double grid_y) {
+      double[] lat_lng = { grid_x * scale, grid_y * scale };
+      return lat_lng;
+    }
+  }
 
   abstract public static class GlobeProjection extends Projection {
     public final double min_lng;
@@ -196,7 +225,7 @@ abstract public class Projection
     //
     return tiles;
   }
-    
+
   }
 
 
@@ -244,7 +273,7 @@ abstract public class Projection
       return result;
     }
   }
-    
+
 
   public static class Mercator extends GlobeProjection {
     public static final double DEFAULT_MIN_LNG      =  -180.0;

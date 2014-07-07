@@ -165,7 +165,7 @@ Bold == works; TODO == soon; strikethrough == later
 
 ### Seeing all this stuff
 
-* **doohickey to render shapes onto a d3 map** (_works_) 
+* **doohickey to render shapes onto a d3 map** (_works_)
 * **TODO** make doohickey and code above work nicely together
 
 ### (ignore)

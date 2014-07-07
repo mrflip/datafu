@@ -20,6 +20,7 @@ package datafu.pig.geo;
 import java.util.Iterator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Comparator;
 
 import org.apache.pig.data.Tuple;
 import org.apache.pig.data.TupleFactory;
@@ -74,6 +75,32 @@ public class Quadtile implements Comparable {
     this(QuadkeyUtils.quadstrToQuadkey(quadstr), QuadkeyUtils.quadstrToZl(quadstr), proj);
   }
 
+  public String quadstr() { return QuadkeyUtils.quadkeyToQuadstr(qk, zl); }
+  public long   quadkey() { return qk; }
+  public int    zoomlvl() { return zl; }
+  public int    tileI()   { return ti; }
+  public int    tileJ()   { return tj; }
+  public int[]  tileIJ()  { int[] tile_ij  = { ti, tj } ;     return tile_ij;  }
+  public int[]  tileIJZ() { int[] tile_ijz = { ti, tj, zl } ; return tile_ijz; }
+
+  /**
+   *
+   * Quadkey zoomed to the given level:
+   * if finer than the current ZL, zooms in on the top left tile until proper height is reached.
+   * if coarser than the current ZL, chops off bits until the proper height is reached.
+   */
+  public long zoomedQuadkey(int target_zl) {
+    if (target_zl > zl) {
+      return qk << 2*(target_zl - zl);
+    } else {
+      return qk >> 2*(zl - target_zl);
+    }
+  }
+
+  public int[] zoomedTileIJ(int target_zl) {
+    return QuadkeyUtils.quadkeyToTileIJ(zoomedQuadkey(target_zl), target_zl);
+  }
+
   /**
    *
    * Smallest quadtile (i.e. most fine-grained zoom level) containing the given object.
@@ -124,22 +151,16 @@ public class Quadtile implements Comparable {
   public Envelope getEnvelope() {
     if (envelope != null) { return envelope; } // memoize
     double[] coords = w_s_e_n();
-    this.envelope = new Envelope(coords[0], coords[1] + 1e-6, coords[2] - 1e-6, coords[3]);
-    // this.envelope = new Envelope(tile_i, tile_j, tile_i+1, tile_j+1);
+    this.envelope = new Envelope(coords[0],
+      coords[1]   , // + 1e-6,
+      coords[2]   , // - 1e-6,
+      coords[3]);
     return envelope;
   }
 
   public double[] w_s_e_n() {
     return QuadkeyUtils.tileIJToWorldWSEN(ti, tj, zl, proj);
   }
-
-  public String quadstr() { return QuadkeyUtils.quadkeyToQuadstr(qk, zl); }
-  public long   quadkey() { return qk; }
-  public int    zoomlvl() { return zl; }
-  public int    tileI()   { return ti; }
-  public int    tileJ()   { return tj; }
-  public int[]  tileIJ()  { int[] tile_ij  = { ti, tj } ;     return tile_ij;  }
-  public int[]  tileIJZ() { int[] tile_ijz = { ti, tj, zl } ; return tile_ijz; }
 
   public String toString() {
     double[] coords = w_s_e_n();
@@ -174,6 +195,12 @@ public class Quadtile implements Comparable {
     long qk_anc = QuadkeyUtils.quadkeyAncestor(qk, zl, zl_anc);
     return new Quadtile(qk_anc, zl_anc, proj);
   }
+
+  public List<Quadtile> descendantsAt(int target_zl) {
+    if (target_zl < zl) { throw new IllegalArgumentException("Cannot iterate descendants at a higher level: my zl "+zl+" req zl "+target_zl ); }
+    return decompose(getEnvelope(), target_zl, target_zl);
+  };
+
 
   /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    *
@@ -210,7 +237,7 @@ public class Quadtile implements Comparable {
   protected void addDescendantsIntersecting_(List<Quadtile> quads, Geometry geom, int zl_coarse, int zl_fine) {
     // intersect the object with our envelope
     Geometry geom_on_tile = GeometryEngine.intersect(geom, getEnvelope(), null);
-    // dump("%-20s %2d->%2d %3d %18s %s %s", "Decomposing", zl_coarse, zl_fine, quads.size(), geom, envelope, geom_on_tile);
+    //dump("%-20s %2d->%2d %3d %18s %s %s", "Decomposing", zl_coarse, zl_fine, quads.size(), geom, envelope, geom_on_tile);
 
     if (geom_on_tile.isEmpty()) {
       // intersection is empty: add nothing to the list and return.
@@ -252,5 +279,30 @@ public class Quadtile implements Comparable {
     fmt = String.format("******\t%30s| %s", this.toString(), fmt);
     System.err.println(String.format(fmt, args));
   }
+
+  // public static class QuadkeyComparator implements Comparator<Quadtile> {
+  // }
+
+  /**
+   * Sorts quadtiles by IJ (vertically) and then I (horizontally), like you read a book.
+   */
+  public static class TileIJComparator implements Comparator<Quadtile> {
+    public final int comp_zl;
+
+    public TileIJComparator(int comparison_zl) {
+      this.comp_zl = comparison_zl;
+    }
+
+    public int compare(Quadtile qt_a, Quadtile qt_b){
+      int[] tij_a = qt_a.zoomedTileIJ(comp_zl);
+      int[] tij_b = qt_b.zoomedTileIJ(comp_zl);
+
+      int i_cmp  = Integer.compare(tij_a[1], tij_b[1]);
+      int j_cmp  = Integer.compare(tij_a[0], tij_b[0]);
+      int zl_cmp = Integer.compare(qt_a.zoomlvl(), qt_b.zoomlvl());
+      return (i_cmp == 0 ? (j_cmp == 0 ? zl_cmp : j_cmp) : i_cmp);
+    }
+  }
+
 
 }

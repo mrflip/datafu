@@ -557,14 +557,14 @@ public class EsriTests extends PigTests
    */
 
   // Approximate latitude and longitude for major cities from maps.google.com
-  private static final double[] PT_la = {34.040143,-118.243103};
-  private static final double[] PT_tokyo = {35.637209,139.65271};
-  private static final double[] PT_ny = {40.716038,-73.99498};
-  private static final double[] PT_paris = {48.857713,2.342491};
-  private static final double[] PT_sydney = {-33.872696,151.195221};
+  public static final double[] PT_la = {34.040143,-118.243103};
+  public static final double[] PT_tokyo = {35.637209,139.65271};
+  public static final double[] PT_ny = {40.716038,-73.99498};
+  public static final double[] PT_paris = {48.857713,2.342491};
+  public static final double[] PT_sydney = {-33.872696,151.195221};
 
 
-  private static final String[] EXAMPLE_FEATURES = {
+  public static final String[] EXAMPLE_FEATURES = {
     "POINT (10.02 20.01)",
     "LINESTRING (10 10, 20 20)",
     "POLYGON ((0 0, 10 10, 0 10, 0 0))",
@@ -580,7 +580,7 @@ public class EsriTests extends PigTests
   };
 
 
-  private static final String[] FEATURES_AS_GEOJSON = {
+  public static final String[] FEATURES_AS_GEOJSON = {
     "{\"type\":\"Point\",\"coordinates\":[10.02,20.01]}",
     "{\"type\":\"LineString\",\"coordinates\":[[10.0,10.0],[20.0,20.0]]}",
     "{\"type\":\"Polygon\",\"coordinates\":[[[0.0,0.0],[0.0,10.0],[10.0,10.0],[0.0,0.0]]]}",
@@ -589,7 +589,7 @@ public class EsriTests extends PigTests
     "{\"type\":\"MultiPolygon\",\"coordinates\":[[[[0.0,0.0],[0.0,1.0],[1.0,0.0],[0.0,0.0]]],[[[2.0,2.0],[2.0,3.0],[3.0,2.0],[2.0,2.0]]]]}",
   };
 
-  private static final String[] FEATURES_AS_WKT = {
+  public static final String[] FEATURES_AS_WKT = {
     "point (10.02 20.01)\t0",
     "linestring (10 10, 20 20)\t0",
     "polygon ((0 0, 0 10, 10 10, 0 0))\t0",
@@ -598,7 +598,7 @@ public class EsriTests extends PigTests
     "multipolygon (((0 0, 0 1, 1 0, 0 0)), ((2 2, 2 3, 3 2, 2 2)))\t0"
   };
 
-  private static final String[] EXAMPLE_FEATURES_OUT = {
+  public static final String[] EXAMPLE_FEATURES_OUT = {
     "(POINT (10.02 20.01))",
     "(LINESTRING (10 10, 20 20))",
     "(POLYGON ((0 0, 10 10, 0 10, 0 0)))",
@@ -612,7 +612,7 @@ public class EsriTests extends PigTests
   // Baseball parks
   //
 
-  private static final String[] PARK_PTS_GEOJSON = {
+  public static final String[] PARK_PTS_GEOJSON = {
     "{\"id\":\"BAL11\",\"type\":\"Point\",\"coordinates\":[\"-76.6\",\"39.3\"]}",
     "{\"id\":\"BOS07\",\"type\":\"Point\",\"coordinates\":[\"-71.1\",\"42.3\"]}",
     "{\"id\":\"CHI11\",\"type\":\"Point\",\"coordinates\":[\"-87.6\",\"41.9\"]}",
@@ -622,7 +622,7 @@ public class EsriTests extends PigTests
     "{\"id\":\"SFO03\",\"type\":\"Point\",\"coordinates\":[\"-122.3\",\"37.7\"]}"
   };
 
-  private static final String[] PARK_PTS = {
+  public static final String[] PARK_PTS = {
     "-76.6\t39.3",
     "-71.1\t42.3",
     "-87.6\t41.9",
@@ -632,7 +632,7 @@ public class EsriTests extends PigTests
     "-122.3\t37.7"
   };
 
-  private static final String[] PARK_PTS_OUT = {
+  public static final String[] PARK_PTS_OUT = {
     "(POINT (-76.6 39.3))",
     "(POINT (-71.1 42.3))",
     "(POINT (-87.6 41.9))",
@@ -642,7 +642,7 @@ public class EsriTests extends PigTests
     "(POINT (-122.3 37.7))"
   };
 
-  private static final String[] PARK_CELLS = {
+  public static final String[] PARK_CELLS = {
     "{\"id\":\"BAL11_cell\",\"type\":\"Polygon\",\"coordinates\":[[[-84.3,31.2],[-80.1,48.8],[-66.4,24.0],[-80.6,24],[-84.3,31.2]]]}",
     "{\"id\":\"BOS07_cell\",\"type\":\"Polygon\",\"coordinates\":[[[-66,29.5],[-77.1,50],[-66,50],[-66,29.5]]]}",
     "{\"id\":\"CHI11_cell\",\"type\":\"Polygon\",\"coordinates\":[[[-80.0,50],[-80.1,48.8],[-84.3,31.2],[-104.4,43.9],[-106.0,50],[-80.0,50]]]}",
@@ -652,7 +652,7 @@ public class EsriTests extends PigTests
     "{\"id\":\"SFO03_cell\",\"type\":\"Polygon\",\"coordinates\":[[[-107.7,50],[-126,29.5],[-126,50],[-107.7,50]]]}"
   };
 
-  private static final String[] PARK_CELLS_OUT = {
+  public static final String[] PARK_CELLS_OUT = {
     "(POLYGON ((-84.3 31.2, -80.6 24, -66.4 24, -80.1 48.8, -84.3 31.2)))",
     "(POLYGON ((-66 29.5, -66 50, -77.1 50, -66 29.5)))",
     "(POLYGON ((-80 50, -106 50, -104.4 43.9, -84.3 31.2, -80.1 48.8, -80 50)))",
