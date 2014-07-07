@@ -23,16 +23,16 @@ Anyway datafu builds really fast and has a nice test rig. So that's where I'm ha
 
 
 
-### Families of UDFs
+### Families of Supporting
 
-### Supporting Spatial join
+#### UDFs Spatial join
 
 * Spatial join on map side:
-  - (_works_) decompose shape into quadtiles that cover it. Takes the collection of tiles covering the shape at the specified coarse zoom level of detail, and recursively decomposes them into smaller quadtiles until either the quadtile is completely contained in the shape or the finest zoom level is reached.
+  - (**works**) decompose shape into quadtiles that cover it. Takes the collection of tiles covering the shape at the specified coarse zoom level of detail, and recursively decomposes them into smaller quadtiles until either the quadtile is completely contained in the shape or the finest zoom level is reached.
   - (**TODO**) make UDF
   - cogroup on quadkey at coarsest zoom level (so everything within those largest-area tiles will land on the same reducer)
 
-* (**TODO**) generic spatial join on reduce side: 
+* (**TODO**) generic spatial join on reduce side:
   - Takes two bags of shapes on the same quadtile;
   - indexes first into a quadtree
   - passes second one through quadtree
@@ -46,179 +46,211 @@ Anyway datafu builds really fast and has a nice test rig. So that's where I'm ha
   - either spatial group
   - take the output and immediately apply an operator, eg intersects, before keeping the object around in a bag.
 
-*
+#### Quadtile Machinery
 
-### Quadtile
+* **QuadtileContaining** (_works_) (geom)
+* **QuadDecomp** (_works_)       --  constant zl
+* **QuadMultiDecomp** (_works_)  --  in zl range (stop if a quad is fully contained)
+* **Quadkey,** (_works_) Quadstr
+* **TileIJ** (_works_)
+* **TileXY** (_works_)
+* **TODO** QuadtileDecompose
 
-* _works_ QuadtileContaining (geom)
-* _works_ QuadDecomp       --  constant zl
-* _works_ QuadMultiDecomp  --  in zl range (stop if a quad is fully contained)
-* _works_ Quadkey, Quadstr
-* _works_ TileIJ
-* _works_ TileXY
+#### Projections
 
-### GeoProcess -- geom -> geom
+* **Identity** (_works_)
+* **Mercator** (_works_)
+* **Equirectangular** (_works_)
+* **TODO** factory
 
+#### `GeoCombineFunc`s  -- (gA, gB) -> geom
 
-* GeoDensify	     (geom)
-* GeoExteriorRing
-* GeoGeneralize      (envelope becomes polygon)
-* GeoNthPoint
-* GeoOffset	     (geom)
-* GeoSimplify	     (geom)
-* GeoStartpoint
-* _udf_ GeoBoundary	     (geom)
-* _udf_ GeoBuffer	     (geom)
-* _udf_ GeoCentroid
-* _udf_ GeoConvexHull	     (geom)
-* _udf_ GeoEndpoint
-* _udf_ GeoEnvelope
+* **Union** (_works, udf_)
+* **GeoDifference** (_works, udf_)
+* **GeoXor** (_works, udf_)
+* **GeoIntersection** (_works, udf_)
+* ~~GeoClip~~
+* ~~GeoCut~~
+* ~~Proximity~~ (getNearestCoordinate, getNearestVertex, getNearestVertices)
 
-### GeoProcessBag --  {bagGeoms} -> geom
+#### `GeoProcessFunc`s -- geom -> geom
 
-* GeoConvexHull	    (bag)
-* GeoBuffer	    (bag)
-* GeoOffset	    (bag)
-* GeoBoundary	    (bag)
+* **GeoBoundary** (_works, udf_)
+* **GeoBuffer** (_works, udf_)
+* **GeoCentroid** (_works, udf_)
+* **GeoConvexHull** (_works, udf_)
+* **GeoEndpoint** (_works, udf_)
+* **GeoEnvelope** (_works, udf_)
+* ~~GeoDensify~~
+* ~~GeoExteriorRing~~
+* ~~GeoGeneralize~~
+* ~~GeoNthPoint~~
+* ~~GeoOffset~~
+* ~~GeoSimplify~~
+* ~~GeoStartpoint~~
+* ~~GeoProject~~
+* ~~GeoTransform~~
 
-### GeoCombine  -- (gA, gB) -> geom
+#### `GeoScalarFunc`s -- geom -> number
 
-* _udf_ Union	
-* _udf_ GeoDifference
-* _udf_ GeoXor	   
-* _udf_ GeoIntersection
-* GeoClip
-* GeoCut
-* Proximity (getNearestCoordinate, getNearestVertex, getNearestVertices)
+* ~~GeoCoordX~~ / GeoCoordY / GeoCoordZ / GeoCoordM
+* ~~GeoNumGeometries~~
+* ~~GeoNumInteriorRing~~
+* ~~GeoNumPoints~~
+* ~~GeoSimpleLength~~
+* **GeoArea** (_works, udf_)
+* **GeoDimensionality** (_works, udf_)
+* **GeoNumCoordinates** (_works, udf_)
+* **MaxX** (_works, udf_) / MaxY / MaxZ / MaxM
+* **MinX** (_works, udf_) / MinY / MinZ / MinM
+* ~~GeodesicDistanceOnWGS84~~
+* ~~GeodeticLength~~
 
-### GeoCombineBag -- (geom, {bagGeoms}) -> geom
+#### `GeoCompareFunc`s -- (gA, gB) -> boolean
 
-* GeoIntersection   (geom, {bag}))
-* GeoDifference	    (geom, {bag})
-* GeoUnion	    (geom, {bag})
+* **TODO** GeoAIntersectsB
+* ~~GeoAContainsB~~
+* ~~GeoACrossesB~~
+* ~~GeoADisjointB~~
+* ~~GeoAEqualsB~~
+* ~~GeoAOverlapsB~~
+* ~~GeoATouchesB~~
+* ~~GeoAWithinB~~
+* ~~GeoABRelatingMatrix~~  returns tuple with the DE-9IM matrix
+* ~~GeoAllRelating~~/~~GeoAnyRelating~~/~~GeoNoneRelating~~: With bag, All? / Any? / None? have relation
+* ~~GeoDistance~~
 
-### GeoCompare -- (gA, gB) -> boolean
+#### `GeoIsPropFunc`s -- geom -> boolean
 
-* IsGeoContains
-* IsGeoCrosses
-* IsGeoDisjoint
-* IsGeoEquals
-* IsGeoOverlaps
-* IsGeoTouches
-* IsGeoWithin
-* IsGeoRelating  (takes a DE-9IM relation)
-* With bag: All? / None? / Any? have relation
-* With bag, filter for it
-* GeoDistance
+* **GeoIsSimple** (_works, udf_)
+* ~~GeoIsClosed~~
+* ~~GeoIsEmpty~~
+* ~~GeoIsRing~~
+* ~~GeoIsEnvIntersects~~
+* ~~GeoFilter~~ --With bag, filter for it
 
-* GeoProject
-* GeoTransform
+#### Conversion
 
-### GeoIsSomething -- geom -> boolean
+* **FromGeoJson** (_works, udf_)
+* **FromWellKnownText** (_works, udf_)
 
-* _udf_ IsGeoSimple
-* IsGeoClosed
-* IsGeoEmpty
-* IsGeoRing
-* IsGeoEnvIntersects
+* **ToGeoJson** (_works, udf_)
+* **ToWellKnownText** (_works, udf_)
 
-### GeoScalar -- geom -> number
+#### Other
 
-* GeoCoordX / GeoCoordY / GeoCoordZ / GeoCoordM
-* GeoNumGeometries
-* GeoNumInteriorRing
-* GeoNumPoints
-* GeoSimpleLength
-* _udf_ GeoArea
-* _udf_ GeoDimensionality
-* _udf_ GeoNumCoordinates
-* _udf_ MaxX / MaxY / MaxZ / MaxM
-* _udf_ MinX / MinY / MinZ / MinM
-* GeodesicDistanceOnWGS84
-* GeodeticLength
+* **GeoPoint** (_works, udf_) -- get point from coords
+* ~~GeoBBox~~ (min_x,~~ min_y, max_x, max_y) -- get envelope object from coords
+* ~~SetSpatialRefId~~
+* ~~GetSpatialRefID~~
+* ~~GeoRelatingMatrix~~ (a tuple of the DE-9IM matrix)
+* ~~GeoFlattenMultigeom~~ -- turns a Multi-whatever into a bag of whatevers
 
-### Other
+#### `GeoCombineBagFunc`s -- (geom, {bagGeoms}) -> geom
 
-* _udf_ GeoPoint	    (xx,yy)
-* `GeoBBox	    (min_x, min_y, max_x, max_y)` -- envelope object from coords
-* SetSpatialRefId
-* GetSpatialRefID
-* GeoRelatingMatrix (a tuple of the DE-9IM matrix)
-* GeoFlattenMultigeom -- turns a Multi-whatever into a bag of whatevers
+* ~~GeoIntersection~~
+* ~~GeoDifference~~
+* ~~GeoUnion~~
 
-### Conversion
+#### `GeoProcessBagFunc`s --  {bag of geoms} -> {bag of processed geoms}
 
-* _udf_ ToGeoJson
-* _udf_ ToWellKnownText
+* ~~GeoConvexHullBag~~
+* ~~GeoBufferBag~~
+* ~~GeoOffsetBag~~
+* ~~GeoBoundaryBag~~
+* ~~GeoProjectBag~~
+* ~~GeoTransformBag~~
+
+### Seeing all this stuff
+
+* **doohickey to render shapes onto a d3 map** (_works_) 
+* **TODO** make doohickey and code above work nicely together
+
+### (ignore)
+
+Here's the signatures of all the esri geometry-api operators
 
 
 ```
-    GeometryCursor    execute(GeometryCursor    inputGeometries,   GeometryCursor            intersector, SpatialReference sr, progtr);
-    GeometryCursor    execute(GeometryCursor    inputGeometries,   GeometryCursor            rightGeometry, SpatialReference sr, progtr);
-    GeometryCursor    execute(GeometryCursor    inputGeometries,   GeometryCursor            subtractor, SpatialReference sr, progtr);
-    GeometryCursor    execute(GeometryCursor    geoms,             Envelope2D                envelope, SpatialReference spatialRef, progtr);
-    GeometryCursor    execute(GeometryCursor    inputGeoms,        GeometryCursor            intersector, SpatialReference sr, progtr, int dimensionMask);
-
-    GeometryCursor    execute(GeometryCursor    geoms,             SpatialReference          sr, boolean bForceSimplify, progtr);
-    GeometryCursor    execute(GeometryCursor    geoms,             SpatialReference          sr, boolean bForceSimplify, progtr);
+combine A with B
 
     Geometry          execute(Geometry          inputGeometry,     Geometry                  intersector, SpatialReference sr, progtr);
     Geometry          execute(Geometry          inputGeometry,     Geometry                  subtractor, SpatialReference sr, progtr);
     Geometry          execute(Geometry          inputGeom1,        Geometry                  geom2, SpatialReference sr, progtr);
     Geometry          execute(Geometry          leftGeometry,      Geometry                  rightGeometry, SpatialReference sr, progtr);
     Geometry          execute(Geometry          inputGeometry,     Envelope2D                envelope, SpatialReference spatialRef, progtr);
+    GeometryCursor    execute(boolean           bConsiderTouch,
+                              Geometry          cuttee,            Polyline                  cutter, SpatialReference spatialReference, progtr);
 
-    double            execute(Geometry          inputGeometry,     SpatialReference          sr, int geodeticCurveType, progtr);
-    double            execute(Geometry          inputGeometry,     SpatialReference          sr, int geodeticCurveType, progtr);
-    double[]          execute(GeometryCursor    geoms,             SpatialReference          sr, int geodeticCurveType, progtr);
-    double[]          execute(GeometryCursor    geoms,             SpatialReference          sr, int geodeticCurveType, progtr);
+combine A with many:
 
+    GeometryCursor    execute(GeometryCursor    inputGeometries,   GeometryCursor            intersector, SpatialReference sr, progtr);
+    GeometryCursor    execute(GeometryCursor    inputGeometries,   GeometryCursor            rightGeometry, SpatialReference sr, progtr);
+    GeometryCursor    execute(GeometryCursor    inputGeometries,   GeometryCursor            subtractor, SpatialReference sr, progtr);
+    GeometryCursor    execute(GeometryCursor    geoms,             Envelope2D                envelope, SpatialReference spatialRef, progtr);
+    GeometryCursor    execute(GeometryCursor    inputGeoms,        GeometryCursor            intersector, SpatialReference sr, progtr, int dimensionMask);
+
+Process shape:
 
     Geometry          execute(Geometry          inputGeometry,     SpatialReference          sr, boolean bForceSimplify, progtr);
     Geometry          execute(Geometry          inputGeometry,     SpatialReference          sr, boolean bForceSimplify, progtr);
     Geometry          execute(Geometry          inputGeometry,     progtr);
     Geometry          execute(Geometry          inputGeometry,     progtr);
-
     Geometry          execute(Geometry          inputGeometry,     SpatialReference          sr, double distance, JoinType joins, double bevelRatio, double flattenError,
     Geometry          execute(Geometry          inputGeometry,     SpatialReference          sr, double distance, progtr);
-    Geometry          execute(Geometry          geometry,          ProjectionTransformation  projection, progtr);
-
+    Geometry          execute(Geometry          inputGeometry,     ProjectionTransformation  projection, progtr);
     Geometry          execute(Geometry          inputGeometry,     double                    maxDeviation, boolean bRemoveDegenerateParts, progtr);
     Geometry          execute(Geometry          inputGeometry,     double                    maxLength, progtr);
 
-    ByteBuffer        execute(int               exportFlags,       Geometry                  geometry);
-    ByteBuffer        execute(int               exportFlags,       Geometry                  geometry, progtr);
-    ByteBufferCursor  execute(int               exportFlags,       GeometryCursor            geometryCursor);
+Process many:
 
-    Geometry          execute(int               importFlags,       Geometry.Type             type, ByteBuffer shapeBuffer);
-    Geometry          execute(int               importFlags,       Geometry.Type             type, ByteBuffer wkbBuffer, progtr);
-    Geometry          execute(int               import_flags,      Geometry.Type             type, String wkt_string, progtr);
-
+    GeometryCursor    execute(GeometryCursor    geoms,             SpatialReference          sr, boolean bForceSimplify, progtr);
+    GeometryCursor    execute(GeometryCursor    geoms,             SpatialReference          sr, boolean bForceSimplify, progtr);
     GeometryCursor    execute(GeometryCursor    geoms,             progtr);
     GeometryCursor    execute(GeometryCursor    geoms,             boolean                   b_merge, progtr);
     GeometryCursor    execute(GeometryCursor    geoms,             double                    maxDeviation, boolean bRemoveDegenerateParts, progtr);
-
     GeometryCursor    execute(GeometryCursor    inputGeoms,        SpatialReference          sr, progtr);
     GeometryCursor    execute(GeometryCursor    inputGeoms,        SpatialReference          sr, double distance, JoinType joins, double bevelRatio, double flattenError,
     GeometryCursor    execute(GeometryCursor    inputGeoms,        SpatialReference          sr, double[] distances, boolean bUnion, progtr);
     GeometryCursor    execute(GeometryCursor    inputGeoms,        double                    maxLength, progtr);
     GeometryCursor    execute(GeometryCursor    inputGeoms,        ProjectionTransformation  projection, progtr);
 
-    GeometryCursor    execute(boolean           bConsiderTouch,    Geometry                  cuttee, Polyline cutter, SpatialReference spatialReference, progtr);
-    GeometryCursor    execute(int               importFlags,       Geometry.Type             type, ByteBufferCursor shapeBuffers);
+Scalar from shape
+
+    double            execute(Geometry          inputGeometry,     SpatialReference          sr, int geodeticCurveType, progtr);
+    double            execute(Geometry          inputGeometry,     SpatialReference          sr, int geodeticCurveType, progtr);
+
+Scalar from A and B
+
+    double            execute(Geometry          geom1,             Geometry                  inputGeom2, progtr);
+    boolean           execute(Geometry          inputGeom1,        Geometry                  inputGeom2, SpatialReference sr, progtr);
+    boolean           execute(Geometry          inputGeom1,        Geometry                  inputGeom2, SpatialReference sr, String de_9im_string, progtr);
+
+Scalar from many shapes:
+
+    double[]          execute(GeometryCursor    geoms,             SpatialReference          sr, int geodeticCurveType, progtr);
+    double[]          execute(GeometryCursor    geoms,             SpatialReference          sr, int geodeticCurveType, progtr);
+
+import / export
+
     MapGeometry       execute(int               import_flags,      Geometry.Type             type, String geoJsonString, progtr
+    GeometryCursor    execute(int               importFlags,       Geometry.Type             type, ByteBufferCursor shapeBuffers);
+    Geometry          execute(int               importFlags,       Geometry.Type             type, ByteBuffer shapeBuffer);
+    Geometry          execute(int               importFlags,       Geometry.Type             type, ByteBuffer wkbBuffer, progtr);
+    Geometry          execute(int               import_flags,      Geometry.Type             type, String wkt_string, progtr);
     MapGeometryCursor execute(Geometry.Type     type,              JsonParserCursor          jsonParserCursor);
+
+    int               execute(int               exportFlags,       Geometry                  geometry, ByteBuffer shapeBuffer);
+    int               execute(int               exportFlags,       Geometry                  geometry, ByteBuffer wkbBuffer, progtr);
+    ByteBuffer        execute(int               exportFlags,       Geometry                  geometry);
+    ByteBuffer        execute(int               exportFlags,       Geometry                  geometry, progtr);
+    ByteBufferCursor  execute(int               exportFlags,       GeometryCursor            geometryCursor);
+    String            execute(int               exportFlags,       Geometry                  geometry, progtr);
+    String            execute(int               exportFlags,       SpatialReference          spatialReference, Geometry geometry);
     String            execute(Geometry          geometry);
     String            execute(SpatialReference  spatialReference,  Geometry                  geometry);
     String            execute(SpatialReference  spatialReference,  Geometry                  geometry);
     String            execute(SpatialReference  spatialReference,  Geometry                  geometry, Map<String, Object> exportProperties);
-    String            execute(int               exportFlags,       Geometry                  geometry, progtr);
-    String            execute(int               exportFlags,       SpatialReference          spatialReference, Geometry geometry);
-    boolean           execute(Geometry          inputGeom1,        Geometry                  inputGeom2, SpatialReference sr, progtr);
-    boolean           execute(Geometry          inputGeom1,        Geometry                  inputGeom2, SpatialReference sr, String de_9im_string, progtr);
-    double            execute(Geometry          geom1,             Geometry                  inputGeom2, progtr);
-    int               execute(int               exportFlags,       Geometry                  geometry, ByteBuffer shapeBuffer);
-    int               execute(int               exportFlags,       Geometry                  geometry, ByteBuffer wkbBuffer, progtr);
 
     MapGeometry       execute(Geometry.Type     type,              JSONObject                jsonObject)
     MapGeometry       execute(Geometry.Type     type,              JsonParser                jsonParser);
