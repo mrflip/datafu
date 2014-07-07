@@ -30,17 +30,19 @@ import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.WktExportFlags;
 import com.esri.core.geometry.ogc.OGCGeometry;
-
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Envelope2D;
 import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.Point;
+
+import datafu.pig.geo.Projection;
 
 public class Quadtile {
   private final long qk;
   private final int  zl;
   private final int  ti;
   private final int  tj;
+  private final Projection proj;
   //
   private Envelope envelope;
   private Geometry fragment;
@@ -51,23 +53,25 @@ public class Quadtile {
    *
    */
 
-  public Quadtile(long quadkey, int zoomlvl) {
+  public Quadtile(long quadkey, int zoomlvl, Projection projection) {
     this.qk = quadkey;
     this.zl = zoomlvl;
     int[] tile_ij = QuadkeyUtils.quadkeyToTileIJ(quadkey);
     this.ti = tile_ij[0];
     this.tj = tile_ij[1];
+    this.proj = projection;
   }
 
-  public Quadtile(int tile_i, int tile_j, int zoomlvl) {
+  public Quadtile(int tile_i, int tile_j, int zoomlvl, Projection projection) {
     this.ti = tile_i;
     this.tj = tile_j;
     this.zl = zoomlvl;
     this.qk = QuadkeyUtils.tileIJToQuadkey(ti, tj);
+    this.proj = projection;
   }
 
-  public Quadtile(String quadstr) {
-    this(QuadkeyUtils.quadstrToQuadkey(quadstr), QuadkeyUtils.quadstrToZl(quadstr));
+  public Quadtile(String quadstr, Projection proj) {
+    this(QuadkeyUtils.quadstrToQuadkey(quadstr), QuadkeyUtils.quadstrToZl(quadstr), proj);
   }
 
   /**
@@ -79,13 +83,13 @@ public class Quadtile {
    * zero. Yikes.
    *
    */
-  public static Quadtile quadtileContaining(Geometry geom, int zoomlvl) {
+  public static Quadtile quadtileContaining(Geometry geom, int zoomlvl, Projection proj) {
     Envelope env = new Envelope();
     geom.queryEnvelope(env);
-    long qk_lfup = QuadkeyUtils.mercatorToQuadkey(env.getXMin(), env.getYMax(), zoomlvl);
-    long qk_rtdn = QuadkeyUtils.mercatorToQuadkey(env.getXMax(), env.getYMin(), zoomlvl);
+    long qk_lfup = QuadkeyUtils.worldToQuadkey(env.getXMin(), env.getYMax(), zoomlvl, proj);
+    long qk_rtdn = QuadkeyUtils.worldToQuadkey(env.getXMax(), env.getYMin(), zoomlvl, proj);
     long[] qk_zl = QuadkeyUtils.smallestContaining(qk_lfup, qk_rtdn, zoomlvl);
-    Quadtile quadtile = new Quadtile(qk_zl[0], (int)qk_zl[1]);
+    Quadtile quadtile = new Quadtile(qk_zl[0], (int)qk_zl[1], proj);
 
     String geom_str = GeometryEngine.geometryToWkt(env, WktExportFlags.wktExportDefaults);
 
@@ -95,30 +99,30 @@ public class Quadtile {
     return quadtile;
   }
 
-  public static Quadtile quadtileContaining(Geometry geom) {
-    return quadtileContaining(geom, QuadkeyUtils.MAX_ZOOM_LEVEL);
+  public static Quadtile quadtileContaining(Geometry geom, Projection projection) {
+    return quadtileContaining(geom, QuadkeyUtils.MAX_ZOOM_LEVEL, projection);
   }
 
-  public static Quadtile quadtileContaining(double lng, double lat, int zoomlvl) {
-    long quadkey = QuadkeyUtils.mercatorToQuadkey(lng, lat, zoomlvl);
-    return new Quadtile(quadkey, zoomlvl);
+  public static Quadtile quadtileContaining(double lng, double lat, int zoomlvl, Projection projection) {
+    long quadkey = QuadkeyUtils.worldToQuadkey(lng, lat, zoomlvl, projection);
+    return new Quadtile(quadkey, zoomlvl, projection);
   }
 
-  public static Quadtile quadtileContaining(double lng, double lat) {
-    return quadtileContaining(lng, lat, QuadkeyUtils.MAX_ZOOM_LEVEL);
+  public static Quadtile quadtileContaining(double lng, double lat, Projection projection) {
+    return quadtileContaining(lng, lat, QuadkeyUtils.MAX_ZOOM_LEVEL, projection);
   }
 
-  public static Quadtile quadtileContaining(double lf, double dn, double rt, double up, int zoomlvl) {
-    long qk_lfup = QuadkeyUtils.mercatorToQuadkey(lf, up, zoomlvl);
-    long qk_rtdn = QuadkeyUtils.mercatorToQuadkey(rt, dn, zoomlvl);
+  public static Quadtile quadtileContaining(double lf, double dn, double rt, double up, int zoomlvl, Projection projection) {
+    long qk_lfup = QuadkeyUtils.worldToQuadkey(lf, up, zoomlvl, projection);
+    long qk_rtdn = QuadkeyUtils.worldToQuadkey(rt, dn, zoomlvl, projection);
     long[] qk_zl = QuadkeyUtils.smallestContaining(qk_lfup, qk_rtdn, zoomlvl);
-    Quadtile quadtile = new Quadtile(qk_zl[0], (int)qk_zl[1]);
+    Quadtile quadtile = new Quadtile(qk_zl[0], (int)qk_zl[1], projection);
     //
     return quadtile;
   }
 
-  public static Quadtile quadtileContaining(double lf, double dn, double rt, double up) {
-    return quadtileContaining(lf, dn, rt, up, QuadkeyUtils.MAX_ZOOM_LEVEL);
+  public static Quadtile quadtileContaining(double lf, double dn, double rt, double up, Projection projection) {
+    return quadtileContaining(lf, dn, rt, up, QuadkeyUtils.MAX_ZOOM_LEVEL, projection);
   }
 
   public Envelope getEnvelope() {
@@ -130,7 +134,7 @@ public class Quadtile {
   }
 
   public double[] w_s_e_n() {
-    return QuadkeyUtils.tileIJToMercatorWSEN(ti, tj, zl);
+    return QuadkeyUtils.tileIJToWorldWSEN(ti, tj, zl, proj);
   }
 
   public String quadstr() { return QuadkeyUtils.quadkeyToQuadstr(qk, zl); }
@@ -160,7 +164,7 @@ public class Quadtile {
     int         child_zl    = this.zl + 1;
     Quadtile[]  child_tiles = {null, null, null, null};
     for (int ci = 0; ci < child_qks.length; ci++) {
-      child_tiles[ci] = new Quadtile(child_qks[ci], child_zl);
+      child_tiles[ci] = new Quadtile(child_qks[ci], child_zl, proj);
     }
     return child_tiles;
   }
@@ -173,7 +177,7 @@ public class Quadtile {
    */
   public Quadtile ancestor(int zl_anc) {
     long qk_anc = QuadkeyUtils.quadkeyAncestor(qk, zl, zl_anc);
-    return new Quadtile(qk_anc, zl_anc);
+    return new Quadtile(qk_anc, zl_anc, proj);
   }
 
 
@@ -190,12 +194,12 @@ public class Quadtile {
    * intersects with the object.
    *
    */
-  public static List<Quadtile> quadtilesCovering(Geometry esGeom, int zl_coarse, int zl_fine) {
-    Quadtile start_quad = quadtileContaining(esGeom, zl_fine);
+  public static List<Quadtile> quadtilesCovering(Geometry esGeom, int zl_coarse, int zl_fine, Projection projection) {
+    Quadtile start_quad = quadtileContaining(esGeom, zl_fine, projection);
     return start_quad.decompose(esGeom, zl_coarse, zl_fine);
   }
-  public static List<Quadtile> quadtilesCovering(OGCGeometry geom, int zl_coarse, int zl_fine) {
-    return quadtilesCovering(geom.getEsriGeometry(), zl_coarse, zl_fine);
+  public static List<Quadtile> quadtilesCovering(OGCGeometry geom, int zl_coarse, int zl_fine, Projection projection) {
+    return quadtilesCovering(geom.getEsriGeometry(), zl_coarse, zl_fine, projection);
   }
 
   public List<Quadtile> decompose(Geometry geom, int zl_coarse, int zl_fine) {

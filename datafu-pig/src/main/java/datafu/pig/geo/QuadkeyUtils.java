@@ -23,22 +23,8 @@ import java.util.List;
 
 import com.esri.core.geometry.NumberUtils;
 
-// import org.apache.pig.data.Tuple;
-// import org.apache.pig.data.TupleFactory;
-// import org.apache.pig.data.BagFactory;
-// import org.apache.pig.data.DataBag;
-//
-// import com.esri.core.geometry.Geometry;
-// import com.esri.core.geometry.ogc.OGCGeometry;
-//
-// import com.esri.core.geometry.Envelope;
-// import com.esri.core.geometry.Envelope2D;
-// import com.esri.core.geometry.GeometryEngine;
-// import com.esri.core.geometry.Point;
-// import com.esri.core.geometry.QuadTree;
-// import com.esri.core.geometry.QuadTree.QuadTreeIterator;
-// import com.esri.core.geometry.SpatialReference;
-//
+import datafu.pig.geo.Projection;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -134,14 +120,7 @@ public final class QuadkeyUtils {
 
   /****************************************************************************
    *
-   * Longitude/Latitude/ZL Methods
-   *
-   */
-
-  /*
-   *
-   * TODO: separate the projection code from the tile code. This should just all
-   * live in tile i/j land only.
+   * To/From World Coordinate Methods
    *
    */
 
@@ -154,15 +133,10 @@ public final class QuadkeyUtils {
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
    * @return        { tile_i, tile_j }
    */
-  public static int[] mercatorToTileIJ(double lng, double lat, final int zl) {
-    int      mapsize = mapTileSize(zl);
-    //
-    double[] proj_ij = mercatorToProjIJ(lng, lat, zl);
-    int[]    tile_ij = {
-      (int) NumberUtils.snap(Math.floor(proj_ij[0]), 0, mapsize-1),
-      (int) NumberUtils.snap(Math.floor(proj_ij[1]), 0, mapsize-1)
-    };
-    return tile_ij;
+  public static int[] worldToTileIJ(double lng, double lat, int zl, Projection proj) {
+    double[] grid_xy = proj.lngLatToGridXY(lng, lat);
+    grid_xy[1] += (EDGE_FUDGE/(1<<zl));  // See note above EDGE_FUDGE
+    return gridXYToTileIJ(grid_xy[0], grid_xy[1], zl);
   }
 
   /**
@@ -179,54 +153,69 @@ public final class QuadkeyUtils {
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
    * @return        { longitude, latitude }
    */
-  public static double[] tileIJToMercator(int ti, int tj, int zl) {
-    return projIJToMercator(ti, tj, zl);
+  public static double[] tileIJToWorld(int ti, int tj, int zl, Projection proj) {
+    double[] grid_xy = tileIJToGridXY(ti, tj, zl);
+    return proj.gridXYToLngLat(grid_xy[0], grid_xy[1]);
   }
 
+
   /**
-   * IJ coordinates of a point at given zoom level using the popular tileserver
-   * Mercator projection. This is the fractional equivalent of the TileIJ index.
+   * Quadkey handle of the tile containing that point at the given zoom level in
+   * the popular tileserver Mercator projection.
    *
    * @param lng     Longitude of the point, in WGS-84 degrees
    * @param lat     Latitude of the point, in WGS-84 degrees
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        { tile_i, tile_j }
+   * @param zl      zoom level, from 1 (lowest detail) to 30 (highest detail)
+   * @param proj    Projection to convert between world and grid coordinates
+   * @return        Quadkey handle of the tile
    */
-  public static double[] mercatorToProjIJ(double lng, double lat, final int zl) {
-    assert lng <= 180 && lng >= -180 && lat <= 90 && lat >= -90;
-    lng = NumberUtils.snap(lng,  MIN_MERC_LNG,  MAX_MERC_LNG);
-    lat = NumberUtils.snap(lat,  MIN_MERC_LAT,  MAX_MERC_LAT);
-    //
-    int      mapsize = mapTileSize(zl);
-    double   ti      = mapsize   * (lng + 180.0) / 360.0;
-    double   tj      = mapsize/2 * (1 - Math.log(Math.tan( (90 + lat)*Math.PI/360.0 ))/Math.PI);
-    //
-    tj               = tj + EDGE_FUDGE; // See note above EDGE_FUDGE
-    double[] tile_ij = { ti, tj };
-    return tile_ij;
+  public static long worldToQuadkey(double lng, double lat, final int zl, Projection proj) {
+    int[] tile_ij = worldToTileIJ(lng, lat, zl, proj);
+    return tileIJToQuadkey(tile_ij[0], tile_ij[1]);
   }
-  // System.err.println(String.format("%8d %8d %4d %20.15f %20.15f mercatorToTileIJ",
-  //     tile_ij[0], tile_ij[1], zl, lng, lat));
+  
+  public static long worldToQuadkey(double lng, double lat, Projection proj) {
+    return worldToQuadkey(lng, lat, MAX_ZOOM_LEVEL, proj);
+  }
 
   /**
-   * Longitude/latitude WGS-84 coordinates (in degrees) of the given point in
-   * the popular tileserver Mercator projection.
+   * World coordinates of the tile's top left corner
    *
-   * @param ti      I index of tile
-   * @param tj      J index of tile
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @param quadkey quadkey handle of the tile
+   * @param zl      zoom level, from 1 (lowest detail) to 30 (highest detail)
+   * @param proj    Projection to convert between world and grid coordinates
    * @return        { longitude, latitude }
    */
-  public static double[] projIJToMercator(double ti, double tj, int zl) {
-    int mapsize  = mapTileSize(zl);
-    ti = NumberUtils.snap(ti, 0, mapsize);
-    tj = NumberUtils.snap(tj, 0, mapsize);
-    //
-    double lng     = 360.0 * ti / mapsize - 180.0;
-    double lat     = 90.0 - 360.0/Math.PI*Math.atan( Math.exp(Math.PI*(tj*2/mapsize - 1)) );
-    //
-    double[] result = {lng, lat};
-    return result;
+  public static double[] quadkeyToWorld(long quadkey, int zl, Projection proj) {
+    int[] tile_ij = quadkeyToTileIJ(quadkey);
+    return tileIJToWorld(tile_ij[0], tile_ij[1], zl, proj);
+  }
+
+  /**
+   * Quadstr string handle of tile at the given zoom level containing that point
+   *
+   * @param lng     Longitude of the point, in degrees
+   * @param lat     Latitude of the point, in degrees
+   * @param zl      Zoom level, from 1 (lowest detail) to 30 (highest detail)
+   * @param proj    Projection to convert between world and grid coordinates
+   * @return String holding base-4 representation of quadkey
+   */
+  public static String worldToQuadstr(double lng, double lat, final int zl, Projection proj)
+  {
+    int[] tile_ij = worldToTileIJ(lng, lat, zl, proj);
+    return tileIJToQuadstr(tile_ij[0], tile_ij[1], zl);
+  }
+
+  /**
+   * World coordinates of the tile's top left corner
+   *
+   * @param quadstr quadstr string handle of the tile
+   * @param proj    Projection to convert between world and grid coordinates
+   * @return        { longitude, latitude }
+   */
+  public static double[] quadstrToWorld(String quadstr, Projection proj) {
+    int[] tile_ijz = quadstrToTileIJZ(quadstr);
+    return tileIJToWorld(tile_ijz[0], tile_ijz[1], tile_ijz[2], proj);
   }
 
   /**
@@ -240,209 +229,58 @@ public final class QuadkeyUtils {
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
    * @return        [west, south, east, north]
    */
-  public static double[] tileIJToMercatorWSEN(int ti, int tj, int zl) {
+  public static double[] tileIJToWorldWSEN(int ti, int tj, int zl, Projection proj) {
     int max_idx  = maxTileIdx(zl);
     if (ti > max_idx || tj > max_idx){ return null; }
-    double[] lf_up = tileIJToMercator(ti,   tj,   zl);
-    double[] rt_dn = tileIJToMercator(ti+1, tj+1, zl);
+    double[] lf_up = tileIJToWorld(ti,   tj,   zl, proj);
+    double[] rt_dn = tileIJToWorld(ti+1, tj+1, zl, proj);
 
     // [left, bottom, right, top]​ -- [min_x, min_y, max_x, max_y]
     double[] result = { lf_up[0], rt_dn[1]+EDGE_FUDGE, rt_dn[0]-EDGE_FUDGE, lf_up[1] };
     return result;
   }
 
-  /**
-   * Quadkey handle of the tile containing that point at the given zoom level in
-   * the popular tileserver Mercator projection.
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+
+  /****************************************************************************
    *
-   * @param lng     Longitude of the point, in WGS-84 degrees
-   * @param lat     Latitude of the point, in WGS-84 degrees
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        Quadkey handle of the tile
+   * GridXY Methods
+   *
    */
-  public static long mercatorToQuadkey(double lng, double lat, final int zl) {
-    int[] tile_ij = mercatorToTileIJ(lng, lat, zl);
-    return tileIJToQuadkey(tile_ij[0], tile_ij[1]);
-  }
-  public static long mercatorToQuadkey(double lng, double lat) {
-    return mercatorToQuadkey(lng, lat, MAX_ZOOM_LEVEL);
+
+  public static int[] gridXYToTileIJ(double gx, double gy, int zl) {
+    int      mapsize  = mapTileSize(zl);
+    double   tile_x   = mapsize * gx;
+    double   tile_y   = mapsize * gy;
+    //
+    int[]    tile_ij  = {
+      (int) NumberUtils.snap(Math.floor(tile_x), 0, mapsize-1),
+      (int) NumberUtils.snap(Math.floor(tile_y), 0, mapsize-1) };
+    return tile_ij;
   }
 
   /**
-   * Longitude/latitude WGS-84 coordinates (in degrees) of the top left (NW)
-   * corner of the given tile in the popular tileserver Mercator projection.
    *
-   * @param quadkey quadkey handle of the tile
+   * Grid X/Y coordinates for the tile.
+   *
+   * Rather than clipping to (0, mapsize-1), you may call wtih tile index ==
+   * mapsize (the index of a hypothetical tile hanging off the right or bottom
+   * edge of the map) allowing you to get the right/bottom edge of tile i,j
+   * by calling this method on tile i+1,j+1.
+   *
+   * @param ti      I index of tile
+   * @param tj      J index of tile
    * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
    * @return        { longitude, latitude }
    */
-  public static double[] quadkeyToMercator(long quadkey, int zl) {
-    int[] tile_ij = quadkeyToTileIJ(quadkey);
-    return tileIJToMercator(tile_ij[0], tile_ij[1], zl);
-  }
-
-  /**
-   * Quadstr string handle of tile containing that point at the given zoom level
-   * in the popular tileserver Mercator projection.
-   *
-   * @param lng        Longitude of the point, in degrees
-   * @param lat        Latitude of the point, in degrees
-   * @param zl         Zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return String holding base-4 representation of quadkey
-   */
-  public static String mercatorToQuadstr(double lng, double lat, final int zl) {
-    int[] tile_ij = mercatorToTileIJ(lng, lat, zl);
-    return tileIJToQuadstr(tile_ij[0], tile_ij[1], zl);
-  }
-
-  /**
-   * Longitude/latitude WGS-84 coordinates (in degrees) of the top left (NW)
-   * corner of the given tile in the popular tileserver Mercator projection.
-   *
-   * @param quadstr quadstr string handle of the tile
-   * @return        { longitude, latitude }
-   */
-  public static double[] quadkeyToMercator(String quadstr) {
-    int[] tile_ijz = quadstrToTileIJZ(quadstr);
-    return tileIJToMercator(tile_ijz[0], tile_ijz[1], tile_ijz[2]);
-  }
-
-  /**
-   * Maximum WGS-84 latitude / longitude extent of the circle covering a given
-   * distance from the point. The longitude extent is **not** the equivalent of
-   * walking east and west from the point, because the meridians can close faster
-   * than the shape of the circle.
-   *
-   * http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
-   * http://gis.stackexchange.com/questions/19221/find-tangent-point-on-circle-furthest-east-or-west
-   *
-   * Coordinates are returned as (west, south, east, and north) extents,
-   * i.e. min lng/lat, max lng/lat. Keep in mind that the north coordinate will
-   * have a smaller tile index than the southern.
-   *
-   * For longitude, the values are _unclipped_: they may extend below -180 or
-   * above 180. For example, a circle of 200 km at 179.9 deg longitude might run
-   * from longitudes 175 to 184, four degrees off the right side of the map.
-   *
-   * Areas that extend through the poles necessarily sweep the entire range of
-   * longitudes, meaning that the bounding box -- while accurate -- has a
-   * significantly larger extent than the circle. See tilesCoveringCircle for
-   * one way this can lead to grief.
-   *
-   * @param lng     Longitude of the point, in WGS-84 degrees
-   * @param lat     Latitude of the point, in WGS-84 degrees
-   * @param dist    Distance in meters
-   * @return        [west, south, east, north] -- i.e. min lng/lat, max lng/lat
-   */
-  public static double[] bboxCoordsForCircle(double lng, double lat, double dist) {
-    if (dist == 0) {            double[] point = { lng,     lat,   lng,  lat  }; return point; }
-    if (dist >= GLOBE_CIRCUM) { double[] world = { -180.0, -90.0, 180.0, 90.0 }; return world; }
+  public static double[] tileIJToGridXY(int ti, int tj, int zl) {
+    int mapsize  = mapTileSize(zl);
+    ti = NumberUtils.snap(ti, 0, mapsize);
+    tj = NumberUtils.snap(tj, 0, mapsize);
     //
-    double lat_rad    = Math.toRadians(lat);
-    double dist_rad   = dist / GLOBE_RADIUS;
-    double north_lat  = Math.toDegrees(lat_rad + dist_rad);
-    double south_lat  = Math.toDegrees(lat_rad - dist_rad);
-    //
-    if (north_lat >= 90 || south_lat <= -90) {
-      // if either was equal-or-past and both are equal-not-past then neither was past...
-      // it only kissed the pole, so sweep the hemisphere not the globe.
-      double lng_d = (north_lat <= 90 && south_lat <= -90 ? 90 : 180);
-      double[] sweeps_pole = { lng-lng_d, (south_lat < -90 ? -90 : south_lat), lng+lng_d, (north_lat >  90 ?  90 : north_lat) };
-      return sweeps_pole;
-    }
-    //
-    double lng_delta = Math.asin( Math.sin(dist_rad) / Math.cos(lat_rad) );
-    lng_delta = (Double.isNaN(lng_delta) ? 90.0 : Math.toDegrees(lng_delta));
-    double east_lng   = lng + lng_delta;
-    double west_lng   = lng - lng_delta;
-    //
-    double[] coords = { west_lng, south_lat, east_lng, north_lat };
-    return coords;
-  }
-
-  /**
-   * Quadtiles covering the area within a given distance in meters from a point.
-   *
-   * The tiles will cover a larger extent than the circle itself, as it returns
-   * all tiles that cover any part of the bounding box that covers the circle.
-   * And for large areas, this may return tiles that do not actually intersect
-   * the circle (especially for far-northerly points).
-   *
-   * However, when using this to partition big data sets, In our experience it's
-   * rarely worth filtering out the bits in the corner (consider that a circle
-   * occupies 79% of its bounding square), and even less worth fine-graining the
-   * tile size (blowing up their count) to get a closer tiling. And since <a
-   * href="http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates">
-   * distance on a sphere isn't so simple</a> -- it can be the case that all
-   * corners of a tile are not within your circle while yet parts of the tile
-   * are -- doing that filtering naively isn't a good plan.
-   *
-   * Areas that extend through the poles necessarily sweep the entire range of
-   * longitudes. If they also extend significantly southward, this will blow up
-   * their tile coverage. For a sense of this, a 600 km circle at zoom level 6
-   * on a Mercator grid requires 16 tiles when centered at London (lat 50.5), 25
-   * centered at Reykjavik (lat 62.1), 180 at Alert, Canada (82.5, the most
-   * northern occupied place) and 520 tiles at 84.8 deg.
-   *
-   * So start by using the complete but sometimes overexuberant sets this
-   * returns, and see whether you care. If you find that the northern-latitudes
-   * or lots-of-small-tiles cases are important, look to the (more expensive)
-   * functions that find a minimal tile set using Geometry objects. Also
-   * consider indexing far-northerly points using an alternate scheme.
-   *
-   * @param lng     Longitude of the point, in WGS-84 degrees
-   * @param lat     Latitude of the point, in WGS-84 degrees
-   * @param dist    Distance in meters
-   * @param zl      Zoom level of detail for the tiles
-   * @return        List of quadstr string handles for a superset of the covering tiles
-   */
-  public static List<String> tilesCoveringCircle(double lng, double lat, double dist, int zl) {
-    List<String> tiles = new ArrayList<String>();
-    //
-    // Get the max/min latitude to index
-    double[] bbox = bboxCoordsForCircle(lng, lat, dist);
-    double   west = bbox[0], south = bbox[1], east = bbox[2], north = bbox[3];
-    //
-    // See if we wrapped off the edge of the world
-    double   west_2 = 0, east_2 = 0;
-    if      (west <= -180 && east >= 180){    east  =  180;      west   = -180; } // whole world
-    else if (west < -180){ west_2 = west+360; east_2 = 180;      west   = -180; } // iterate  west+360..180 and -180..east
-    else if (east >  180){ west_2 = -180;     east_2 = east-360; east   =  180; } // iterate -180..east-360 and  west..180
-    //
-    // Scan over tile indexes. For Mercator, lines of lat/lng have constant tile index so only need two corners
-    int[] tij_min = mercatorToTileIJ(west,  north,  zl); // (lower tj is north)
-    int[] tij_max = mercatorToTileIJ(east,  south,  zl);
-    addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
-    //
-    // If we wrapped, also contribute the wrapped portion
-    if (west_2 != 0 || east_2 != 0) {
-      tij_min = mercatorToTileIJ(west_2, north,  zl);
-      tij_max = mercatorToTileIJ(east_2, south,  zl);
-      addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
-    }
-    //
-    int[] tij_pt  = mercatorToTileIJ(lng, lat, zl);
-    System.err.println(String.format("%10.5f %10.5f %2d %4d | %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f | %5d < %5d > %5d | %5d < %5d > %5d",
-        lng, lat, zl, tiles.size(),
-        west, south, east, north, west_2, east_2,
-        tij_min[0], tij_pt[0], tij_max[0],
-        tij_min[1], tij_pt[1], tij_max[1]));
-    //
-    return tiles;
-  }
-
-  /**
-   * iterate over the given indices in both directions, pushing all tiles found into the list
-   */
-  private static void addTilesCoveringIJRect(int ti_min, int tj_min, int ti_max, int tj_max, int zl, List<String> tiles) {
-    for (int tj_q = tj_min; tj_q <= tj_max; tj_q++) {
-      for (int ti_q = ti_min; ti_q <= ti_max; ti_q++) {
-        String quadstr = tileIJToQuadstr(ti_q, tj_q, zl);
-        // System.err.println(String.format("%-12s | %8d %8d %8d | %8d %8d %8d",
-        //     quadstr, ti_min, ti_q, ti_max, tj_min, tj_q, tj_max));
-        tiles.add(quadstr);
-      }
-    }
+    double[] grid_xy = { 1.0*ti / mapsize, 1.0*tj / mapsize };
+    return grid_xy;
   }
 
   /****************************************************************************
@@ -455,25 +293,32 @@ public final class QuadkeyUtils {
    * Quadkey handle (Morton number) of tile with given tile i/j indices.
    */
   public static long tileIJToQuadkey(int ti, int tj) {
+    // convert it 8 bits a piece: x evens, y odds
     long qk =
-      MORTON_LUT[(tj >> 24) & 0xff] << 49 |
-      MORTON_LUT[(ti >> 24) & 0xff] << 48 |
-      MORTON_LUT[(tj >> 16) & 0xff] << 33 |
-      MORTON_LUT[(ti >> 16) & 0xff] << 32 |
-      MORTON_LUT[(tj >>  8) & 0xff] << 17 |
-      MORTON_LUT[(ti >>  8) & 0xff] << 16 |
-      MORTON_LUT[ tj        & 0xff] << 1  |
-      MORTON_LUT[ ti        & 0xff];
+      MORTON_LUT[ ti        & 0xff]       | MORTON_LUT[ tj        & 0xff] << 1  | 
+      MORTON_LUT[(ti >>  8) & 0xff] << 16 | MORTON_LUT[(tj >>  8) & 0xff] << 17 | 
+      MORTON_LUT[(ti >> 16) & 0xff] << 32 | MORTON_LUT[(tj >> 16) & 0xff] << 33 | 
+      MORTON_LUT[(ti >> 24) & 0xff] << 48 | MORTON_LUT[(tj >> 24) & 0xff] << 49 ;
     return qk;
   }
 
   /**
-   * Tile I/J indices of a
+   * Tile I/J indices of a tile given by its quadkey
+   *
+   * @param  quadkey handle of a tile
+   * @return { tile_i, tile_j }
    */
   public static int[] quadkeyToTileIJ(long qk) {
     int[] res = { uninterleaveBits(qk), uninterleaveBits(qk >> 1) };
     return res;
   }
+  /**
+   * Tile I/J indices and zoom level of a tile given by its quadkey and zoom level.
+   * (This is provided as a convenience; the zoom level passes through).
+   *
+   * @param  quadkey handle of a tile
+   * @return { tile_i, tile_j, zoom level }
+   */
   public static int[] quadkeyToTileIJZ(long qk, int zl) {
     int[] res = { uninterleaveBits(qk), uninterleaveBits(qk >> 1), zl };
     return res;
@@ -512,7 +357,7 @@ public final class QuadkeyUtils {
   /** Quadkey directly left of the given quadkey */
   public static long quadkeyNeighborLeft(long qk) {
     long qk_id = (qk    & 0x5555555555555555L) - 1;
-    return       (qk_id & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL); 
+    return       (qk_id & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL);
   }
 
   /** Quadkey directly up of the given quadkey */
@@ -607,8 +452,6 @@ public final class QuadkeyUtils {
     throw new RuntimeException("Quadkeys out of range: "+qk_1+" or "+qk_2+" have more bits than I can shift.");
   }
 
-
-
   /**
    * Quadkey of the smallest parent tile containing the tiles for given quadstr
    * string handles. Throws an error if tiles are not at the same zoom level
@@ -626,6 +469,18 @@ public final class QuadkeyUtils {
     long[] qk_zl = smallestContaining(qk_1, qk_2, zl_1);
     String res = quadkeyToQuadstr(qk_zl[0], (int)qk_zl[1]);
     return res;
+  }
+
+  /**
+   * iterate over the given indices in both directions, pushing all tiles found into the list
+   */
+  public static void addTilesCoveringIJRect(int ti_min, int tj_min, int ti_max, int tj_max, int zl, List<String> tiles) {
+    for (int tj_q = tj_min; tj_q <= tj_max; tj_q++) {
+      for (int ti_q = ti_min; ti_q <= ti_max; ti_q++) {
+        String quadstr = tileIJToQuadstr(ti_q, tj_q, zl);
+        tiles.add(quadstr);
+      }
+    }
   }
 
   /****************************************************************************

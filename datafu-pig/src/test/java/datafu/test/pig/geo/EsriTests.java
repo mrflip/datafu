@@ -37,6 +37,7 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import datafu.pig.geo.QuadkeyUtils;
 import datafu.pig.geo.GeometryUtils;
 import datafu.pig.geo.Quadtile;
+import datafu.pig.geo.Projection;
 
 public class EsriTests extends PigTests
 {
@@ -71,7 +72,7 @@ public class EsriTests extends PigTests
     String test_shape =
       "POLYGON ((-85 20, -70 20, -70 30, -85 30, -85 20))";
 
-    List<Quadtile> qt_list = Quadtile.quadtilesCovering( OGCGeometry.fromText(test_shape), 4, 7);
+    List<Quadtile> qt_list = Quadtile.quadtilesCovering( OGCGeometry.fromText(test_shape), 4, 7, new Projection.Mercator());
     for (Quadtile qt: qt_list) {
       GeometryUtils.dump("got qt: %s", qt);
     }
