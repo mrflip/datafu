@@ -240,25 +240,25 @@ public class QuadtileTests extends PigTests
   @Test
   public void mercatorTest() throws Exception
   {
-    Projection proj = new Projection.Mercator();    
+    Projection.GlobeProjection proj = new Projection.Mercator();    
     double[] special_lngs = {
-      QuadkeyUtils.MIN_MERC_LNG,
-      QuadkeyUtils.MIN_MERC_LNG+QuadkeyUtils.EDGE_FUDGE,
+      proj.min_lng,
+      proj.min_lng+QuadkeyUtils.EDGE_FUDGE,
       -168.7500000001,
       -168.750000000,
       -60, -30, -1e-8, 0, 1e-8, 30, 60,
       168.7500000001,
-      QuadkeyUtils.MAX_MERC_LNG-QuadkeyUtils.EDGE_FUDGE,
-      QuadkeyUtils.MAX_MERC_LNG
+      proj.max_lng-QuadkeyUtils.EDGE_FUDGE,
+      proj.max_lng
     };
     double[] special_lats = {
       -90,
-      QuadkeyUtils.MIN_MERC_LAT,
+      proj.min_lat,
       -60, -30, -1e-8, 0, 1e-8, 30, 60,
       55.776573018667705,
       61.60639637,
       61.606396371286266,
-      QuadkeyUtils.MAX_MERC_LAT,
+      proj.max_lat,
       90
     };
     //

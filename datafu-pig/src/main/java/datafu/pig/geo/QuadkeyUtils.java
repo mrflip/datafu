@@ -88,19 +88,6 @@ import org.apache.commons.logging.LogFactory;
 public final class QuadkeyUtils {
   private static final Log LOG = LogFactory.getLog(QuadkeyUtils.class);
 
-  public static final double MIN_MERC_LNG    =  -180.0;
-  public static final double MAX_MERC_LNG    =   180.0;
-  public static final double MIN_MERC_LNGRAD = Math.toRadians(MIN_MERC_LNG);
-  public static final double MAX_MERC_LNGRAD = Math.toRadians(MAX_MERC_LNG);
-  //
-  public static final double MIN_MERC_LAT    =  -85.05112878; // Math.atan(Math.sinh(Math.PI))*180/Math.PI; //
-  public static final double MAX_MERC_LAT    =   85.05112878;
-  public static final double MIN_MERC_LATRAD = Math.toRadians(MIN_MERC_LAT);
-  public static final double MAX_MERC_LATRAD = Math.toRadians(MAX_MERC_LAT);
-  //
-  public static final double GLOBE_RADIUS    = 6378137.0;
-  public static final double GLOBE_CIRCUM    = GLOBE_RADIUS * 2.0 * Math.PI;
-
   public static final int   MAX_ZOOM_LEVEL   = 30;
 
   // The arctan/log/tan/sinh business gives slight loss of precision. We could
@@ -117,131 +104,6 @@ public final class QuadkeyUtils {
   // double lat2    = 180/Math.PI*Math.atan(Math.sinh(Math.PI * (1 - 2.0*tj/mapsize)));
   //
   public static final double EDGE_FUDGE      = 1e-10;
-
-  /****************************************************************************
-   *
-   * To/From World Coordinate Methods
-   *
-   */
-
-  /**
-   * Tile IJ indices of the tile containing that point at given zoom level using
-   * the popular tileserver Mercator projection.
-   *
-   * @param lng     Longitude of the point, in WGS-84 degrees
-   * @param lat     Latitude of the point, in WGS-84 degrees
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        { tile_i, tile_j }
-   */
-  public static int[] worldToTileIJ(double lng, double lat, int zl, Projection proj) {
-    double[] grid_xy = proj.lngLatToGridXY(lng, lat);
-    grid_xy[1] += (EDGE_FUDGE/(1<<zl));  // See note above EDGE_FUDGE
-    return gridXYToTileIJ(grid_xy[0], grid_xy[1], zl);
-  }
-
-  /**
-   * Longitude/latitude WGS-84 coordinates (in degrees) of the top left (NW)
-   * corner of the given tile in the popular tileserver Mercator projection.
-   *
-   * We allow this to be called with tile index = mapsize, i.e. the index of a
-   * hypothetical tile hanging off the right or bottom edge of the map, so that
-   * you can call this function on ti+1 or tj+1 to get the right/bottom edge of
-   * a tile.
-   *
-   * @param ti      I index of tile
-   * @param tj      J index of tile
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        { longitude, latitude }
-   */
-  public static double[] tileIJToWorld(int ti, int tj, int zl, Projection proj) {
-    double[] grid_xy = tileIJToGridXY(ti, tj, zl);
-    return proj.gridXYToLngLat(grid_xy[0], grid_xy[1]);
-  }
-
-
-  /**
-   * Quadkey handle of the tile containing that point at the given zoom level in
-   * the popular tileserver Mercator projection.
-   *
-   * @param lng     Longitude of the point, in WGS-84 degrees
-   * @param lat     Latitude of the point, in WGS-84 degrees
-   * @param zl      zoom level, from 1 (lowest detail) to 30 (highest detail)
-   * @param proj    Projection to convert between world and grid coordinates
-   * @return        Quadkey handle of the tile
-   */
-  public static long worldToQuadkey(double lng, double lat, final int zl, Projection proj) {
-    int[] tile_ij = worldToTileIJ(lng, lat, zl, proj);
-    return tileIJToQuadkey(tile_ij[0], tile_ij[1]);
-  }
-  
-  public static long worldToQuadkey(double lng, double lat, Projection proj) {
-    return worldToQuadkey(lng, lat, MAX_ZOOM_LEVEL, proj);
-  }
-
-  /**
-   * World coordinates of the tile's top left corner
-   *
-   * @param quadkey quadkey handle of the tile
-   * @param zl      zoom level, from 1 (lowest detail) to 30 (highest detail)
-   * @param proj    Projection to convert between world and grid coordinates
-   * @return        { longitude, latitude }
-   */
-  public static double[] quadkeyToWorld(long quadkey, int zl, Projection proj) {
-    int[] tile_ij = quadkeyToTileIJ(quadkey);
-    return tileIJToWorld(tile_ij[0], tile_ij[1], zl, proj);
-  }
-
-  /**
-   * Quadstr string handle of tile at the given zoom level containing that point
-   *
-   * @param lng     Longitude of the point, in degrees
-   * @param lat     Latitude of the point, in degrees
-   * @param zl      Zoom level, from 1 (lowest detail) to 30 (highest detail)
-   * @param proj    Projection to convert between world and grid coordinates
-   * @return String holding base-4 representation of quadkey
-   */
-  public static String worldToQuadstr(double lng, double lat, final int zl, Projection proj)
-  {
-    int[] tile_ij = worldToTileIJ(lng, lat, zl, proj);
-    return tileIJToQuadstr(tile_ij[0], tile_ij[1], zl);
-  }
-
-  /**
-   * World coordinates of the tile's top left corner
-   *
-   * @param quadstr quadstr string handle of the tile
-   * @param proj    Projection to convert between world and grid coordinates
-   * @return        { longitude, latitude }
-   */
-  public static double[] quadstrToWorld(String quadstr, Projection proj) {
-    int[] tile_ijz = quadstrToTileIJZ(quadstr);
-    return tileIJToWorld(tile_ijz[0], tile_ijz[1], tile_ijz[2], proj);
-  }
-
-  /**
-   * WGS84 coordinates for tile's west, south, east, and north extents in the
-   * popular tileserver Mercator projection. That is:
-   *
-   *   minimum longitude, minimum latitude, maximum longitude, maximum latitude
-   *
-   * @param ti      I index of tile
-   * @param tj      J index of tile
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        [west, south, east, north]
-   */
-  public static double[] tileIJToWorldWSEN(int ti, int tj, int zl, Projection proj) {
-    int max_idx  = maxTileIdx(zl);
-    if (ti > max_idx || tj > max_idx){ return null; }
-    double[] lf_up = tileIJToWorld(ti,   tj,   zl, proj);
-    double[] rt_dn = tileIJToWorld(ti+1, tj+1, zl, proj);
-
-    // [left, bottom, right, top]​ -- [min_x, min_y, max_x, max_y]
-    double[] result = { lf_up[0], rt_dn[1]+EDGE_FUDGE, rt_dn[0]-EDGE_FUDGE, lf_up[1] };
-    return result;
-  }
-
-  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  
 
   /****************************************************************************
    *
@@ -548,6 +410,128 @@ public final class QuadkeyUtils {
    */
   public static int[] quadstrToTileIJZ(String quadstr) {
     return quadkeyToTileIJZ( quadstrToQuadkey(quadstr), quadstrToZl(quadstr) );
+  }
+
+  /****************************************************************************
+   *
+   * To/From World Coordinate Methods
+   *
+   */
+
+  /**
+   * Tile IJ indices of the tile containing that point at given zoom level using
+   * the popular tileserver Mercator projection.
+   *
+   * @param lng     Longitude of the point, in WGS-84 degrees
+   * @param lat     Latitude of the point, in WGS-84 degrees
+   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @return        { tile_i, tile_j }
+   */
+  public static int[] worldToTileIJ(double lng, double lat, int zl, Projection proj) {
+    double[] grid_xy = proj.lngLatToGridXY(lng, lat);
+    grid_xy[1] += (EDGE_FUDGE/(1<<zl));  // See note above EDGE_FUDGE
+    return gridXYToTileIJ(grid_xy[0], grid_xy[1], zl);
+  }
+
+  /**
+   * Longitude/latitude WGS-84 coordinates (in degrees) of the top left (NW)
+   * corner of the given tile in the popular tileserver Mercator projection.
+   *
+   * We allow this to be called with tile index = mapsize, i.e. the index of a
+   * hypothetical tile hanging off the right or bottom edge of the map, so that
+   * you can call this function on ti+1 or tj+1 to get the right/bottom edge of
+   * a tile.
+   *
+   * @param ti      I index of tile
+   * @param tj      J index of tile
+   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @return        { longitude, latitude }
+   */
+  public static double[] tileIJToWorld(int ti, int tj, int zl, Projection proj) {
+    double[] grid_xy = tileIJToGridXY(ti, tj, zl);
+    return proj.gridXYToLngLat(grid_xy[0], grid_xy[1]);
+  }
+
+
+  /**
+   * Quadkey handle of the tile containing that point at the given zoom level in
+   * the popular tileserver Mercator projection.
+   *
+   * @param lng     Longitude of the point, in WGS-84 degrees
+   * @param lat     Latitude of the point, in WGS-84 degrees
+   * @param zl      zoom level, from 1 (lowest detail) to 30 (highest detail)
+   * @param proj    Projection to convert between world and grid coordinates
+   * @return        Quadkey handle of the tile
+   */
+  public static long worldToQuadkey(double lng, double lat, final int zl, Projection proj) {
+    int[] tile_ij = worldToTileIJ(lng, lat, zl, proj);
+    return tileIJToQuadkey(tile_ij[0], tile_ij[1]);
+  }
+  
+  public static long worldToQuadkey(double lng, double lat, Projection proj) {
+    return worldToQuadkey(lng, lat, MAX_ZOOM_LEVEL, proj);
+  }
+
+  /**
+   * World coordinates of the tile's top left corner
+   *
+   * @param quadkey quadkey handle of the tile
+   * @param zl      zoom level, from 1 (lowest detail) to 30 (highest detail)
+   * @param proj    Projection to convert between world and grid coordinates
+   * @return        { longitude, latitude }
+   */
+  public static double[] quadkeyToWorld(long quadkey, int zl, Projection proj) {
+    int[] tile_ij = quadkeyToTileIJ(quadkey);
+    return tileIJToWorld(tile_ij[0], tile_ij[1], zl, proj);
+  }
+
+  /**
+   * Quadstr string handle of tile at the given zoom level containing that point
+   *
+   * @param lng     Longitude of the point, in degrees
+   * @param lat     Latitude of the point, in degrees
+   * @param zl      Zoom level, from 1 (lowest detail) to 30 (highest detail)
+   * @param proj    Projection to convert between world and grid coordinates
+   * @return String holding base-4 representation of quadkey
+   */
+  public static String worldToQuadstr(double lng, double lat, final int zl, Projection proj)
+  {
+    int[] tile_ij = worldToTileIJ(lng, lat, zl, proj);
+    return tileIJToQuadstr(tile_ij[0], tile_ij[1], zl);
+  }
+
+  /**
+   * World coordinates of the tile's top left corner
+   *
+   * @param quadstr quadstr string handle of the tile
+   * @param proj    Projection to convert between world and grid coordinates
+   * @return        { longitude, latitude }
+   */
+  public static double[] quadstrToWorld(String quadstr, Projection proj) {
+    int[] tile_ijz = quadstrToTileIJZ(quadstr);
+    return tileIJToWorld(tile_ijz[0], tile_ijz[1], tile_ijz[2], proj);
+  }
+
+  /**
+   * WGS84 coordinates for tile's west, south, east, and north extents in the
+   * popular tileserver Mercator projection. That is:
+   *
+   *   minimum longitude, minimum latitude, maximum longitude, maximum latitude
+   *
+   * @param ti      I index of tile
+   * @param tj      J index of tile
+   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @return        [west, south, east, north]
+   */
+  public static double[] tileIJToWorldWSEN(int ti, int tj, int zl, Projection proj) {
+    int max_idx  = maxTileIdx(zl);
+    if (ti > max_idx || tj > max_idx){ return null; }
+    double[] lf_up = tileIJToWorld(ti,   tj,   zl, proj);
+    double[] rt_dn = tileIJToWorld(ti+1, tj+1, zl, proj);
+
+    // [left, bottom, right, top]​ -- [min_x, min_y, max_x, max_y]
+    double[] result = { lf_up[0], rt_dn[1]+EDGE_FUDGE, rt_dn[0]-EDGE_FUDGE, lf_up[1] };
+    return result;
   }
 
 
