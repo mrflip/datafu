@@ -20,12 +20,15 @@ Anyway datafu builds really fast and has a nice test rig. So that's where I'm ha
 
 * I couldn't get the output_schema of GeoScalarFunc to figure out what its template type was. So you can have any scalar function you'd like as long as it returns a double.
 
+### Credits
 
+* https://github.com/Esri/spatial-framework-for-hadoop -- we take a different implementation approach but much of the functionality has been garnered from the Esri collection of Hive UDFs.
 
+### Families of UDFS
 
-### Families of Supporting
+Bold == works; TODO == soon; strikethrough == later
 
-#### UDFs Spatial join
+#### Supporting Spatial join
 
 * Spatial join on map side:
   - (**works**) decompose shape into quadtiles that cover it. Takes the collection of tiles covering the shape at the specified coarse zoom level of detail, and recursively decomposes them into smaller quadtiles until either the quadtile is completely contained in the shape or the finest zoom level is reached.
@@ -61,7 +64,7 @@ Anyway datafu builds really fast and has a nice test rig. So that's where I'm ha
 * **Identity** (_works_)
 * **Mercator** (_works_)
 * **Equirectangular** (_works_)
-* **TODO** factory
+* **TODO** ~~ProjectionFactory~~
 
 #### `GeoCombineFunc`s  -- (gA, gB) -> geom
 
@@ -93,22 +96,22 @@ Anyway datafu builds really fast and has a nice test rig. So that's where I'm ha
 
 #### `GeoScalarFunc`s -- geom -> number
 
-* ~~GeoCoordX~~ / GeoCoordY / GeoCoordZ / GeoCoordM
-* ~~GeoNumGeometries~~
-* ~~GeoNumInteriorRing~~
-* ~~GeoNumPoints~~
-* ~~GeoSimpleLength~~
 * **GeoArea** (_works, udf_)
 * **GeoDimensionality** (_works, udf_)
 * **GeoNumCoordinates** (_works, udf_)
 * **MaxX** (_works, udf_) / MaxY / MaxZ / MaxM
 * **MinX** (_works, udf_) / MinY / MinZ / MinM
+* ~~GeoCoordX~~ / GeoCoordY / GeoCoordZ / GeoCoordM
+* ~~GeoNumGeometries~~
+* ~~GeoNumInteriorRing~~
+* ~~GeoNumPoints~~
+* ~~GeoSimpleLength~~
 * ~~GeodesicDistanceOnWGS84~~
 * ~~GeodeticLength~~
 
 #### `GeoCompareFunc`s -- (gA, gB) -> boolean
 
-* **TODO** GeoAIntersectsB
+* **TODO** ~~GeoAIntersectsB~~
 * ~~GeoAContainsB~~
 * ~~GeoACrossesB~~
 * ~~GeoADisjointB~~
@@ -133,7 +136,6 @@ Anyway datafu builds really fast and has a nice test rig. So that's where I'm ha
 
 * **FromGeoJson** (_works, udf_)
 * **FromWellKnownText** (_works, udf_)
-
 * **ToGeoJson** (_works, udf_)
 * **ToWellKnownText** (_works, udf_)
 
