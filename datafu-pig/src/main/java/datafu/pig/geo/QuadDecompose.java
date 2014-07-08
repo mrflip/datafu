@@ -19,11 +19,25 @@
 
 package datafu.pig.geo;
 
+import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Comparator;
+
 import org.apache.pig.data.DataType;
+import org.apache.pig.impl.logicalLayer.schema.Schema;
+
+import org.apache.pig.data.BagFactory;
+import org.apache.pig.data.DataBag;
+import org.apache.pig.data.DataType;
+import org.apache.pig.data.Tuple;
+import org.apache.pig.data.TupleFactory;
+import org.apache.pig.impl.logicalLayer.FrontendException;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
 
 import datafu.pig.geo.GeometryUtils;
 import datafu.pig.util.SimpleEvalFunc;
+import com.google.common.base.CaseFormat;
 
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
@@ -38,20 +52,17 @@ import com.esri.core.geometry.SpatialReference;
 
 import org.json.JSONException;
 
+import datafu.pig.geo.GeometryUtils;
 
-public class QuadDecompose extends SimpleEvalFunc<String>
+
+public class QuadDecompose extends SimpleEvalFunc<DataBag>
 {
-
-  QuadTree quadTree;
-  QuadTreeIterator quadTreeIter;
-
-  private int height;
-  public static final String DEFAULT_HEIGHT = "6";
-
+  public static final String DEFAULT_HEIGHT = "7";
   public static final int   WGS84 = 4326;
-  private SpatialReference spatialReference;
 
-
+  private int               height;
+  private SpatialReference  spatialReference;
+  
   public QuadDecompose() {
     this(DEFAULT_HEIGHT);
   }
@@ -61,74 +72,100 @@ public class QuadDecompose extends SimpleEvalFunc<String>
     this.spatialReference = SpatialReference.create(WGS84);
   }
 
-  private void buildQuadTree(Geometry geom){
-    quadTree = new QuadTree(new Envelope2D(-180, -90, 180, 90), height);
-
-    Envelope envelope = new Envelope();
-    // for (int i=0;i<featureClass.features.length;i++){
-    // featureClass.features[i].
-      geom.queryEnvelope(envelope);
-      quadTree.insert(
-        0,
-          new Envelope2D(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax()));
-      //}
-
-    quadTreeIter = quadTree.getIterator();
-  }
-
-  private int queryQuadTree(Point pt, Geometry geom)
-  {
-    // reset iterator to the quadrant envelope that contains the point passed
-    quadTreeIter.resetIterator(pt, 0);
-
-    int elmHandle = quadTreeIter.next();
-
-    while (elmHandle >= 0){
-      int featureIndex = quadTree.getElement(elmHandle);
-
-      // we know the point and this feature are in the same quadrant, but we need to make sure the feature
-      // actually contains the point
-      if (GeometryEngine.contains(geom, pt, spatialReference)){
-       return featureIndex;
+  private List<OGCGeometry> geomsFromBag(DataBag raw_geoms, QuadTree quadtree) {
+    List<OGCGeometry> geoms = new ArrayList<OGCGeometry>();
+    //
+    int    qtr_idx = 0;
+    String payload = null;
+    //
+    for (Tuple rawg_tup: raw_geoms) {
+      try {
+        payload = (String)rawg_tup.get(0);
+        OGCGeometry geom = GeometryUtils.payloadToGeom(payload);
+        if (geom == null){ return null; }
+        //
+        quadtree.insert(qtr_idx, GeometryUtils.getEnvelope2D(geom));
+        geoms.add(geom);
+        qtr_idx = qtr_idx+1;
       }
-
-       elmHandle = quadTreeIter.next();
+      catch (Exception err) {
+        String msg = String.format("Loading failed in %s (%s): %s", opName(), err.getMessage(),
+          GeometryUtils.printablePayload(payload));
+        GeometryUtils.fuckYouError(msg, err);
+        log.error(msg);
+        throw new RuntimeException(msg, err);
+      }
     }
-    return -1; // feature not found
+    return geoms;
   }
 
-  public String call(String geo_json) throws JSONException {
+  public DataBag call(DataBag bag_a, String pt_payload) throws JSONException {
+    QuadTree          quadtree = new QuadTree(new Envelope2D(0, 0, 1280, 1280), height);
+    QuadTreeIterator  qtr_iter = quadtree.getIterator();
+    List<OGCGeometry> geoms_a;
+
     try {
-      OGCGeometry ogcObj   = OGCGeometry.fromGeoJson(geo_json);
-      Geometry    geom     = ogcObj.getEsriGeometry();
+      geoms_a        = geomsFromBag(bag_a, quadtree);
+      Geometry pt    = GeometryUtils.payloadToGeom(pt_payload).getEsriGeometry();
+      if (pt == null){ return null; }
+      GeometryUtils.dump("%s", geoms_a);
+      
+      DataBag result_bag = BagFactory.getInstance().newDefaultBag();
 
-      buildQuadTree(geom);
-
-      // Create our Point directly from longitude and latitude
-      Point bal_11 = new Point(-76.6,39.33);
-      Point bos_07 = new Point(-71.1,42.35);
-
-      log.info("geom: "+geom+" bal_11: "+bal_11);
-
-      String   res = "";
-      int featureIndex;
-      featureIndex = queryQuadTree(bal_11, geom);
-      if (featureIndex >= 0) { res = res + "bal_11"; };
-      featureIndex = queryQuadTree(bos_07, geom);
-      if (featureIndex >= 0) { res = res + geom.getDescription(); };
-
-      log.debug(res);
-      return   res;
+      // reset iterator to the quadrant envelope that contains the point passed
+      qtr_iter.resetIterator(pt, 0);
+  
+      int qtr_handle = qtr_iter.next();
+      while (qtr_handle >= 0){
+        int qtr_idx = quadtree.getElement(qtr_handle);
+  
+        Tuple result_tup = TupleFactory.getInstance().newTuple();
+        result_tup.append(String.format("%s / %s / %d / %d",
+            pt, geoms_a.get(qtr_idx),
+            qtr_handle, qtr_idx));
+        // result_tup.append(geoms_a.get(qtr_idx));
+        
+        result_bag.add(result_tup);
+      
+        // // we know the point and this feature are in the same quadrant, but we need to make sure the feature
+        // // actually contains the point
+        // if (GeometryEngine.contains(geom, pt, spatialReference)){
+        //  return featureIndex;
+        // }
+        qtr_handle = qtr_iter.next();
+      }
+      
+      return result_bag;
     }
     catch (Exception err) {
-      log.error(err.getMessage());
-      throw new RuntimeException("Can't parse input: " + err.getMessage() + " /// " + geo_json, err);
+      String msg = String.format("Can't %s (%s): %s", opName(), err.getMessage(),
+        // GeometryUtils.printablePayload(payload),
+        pt_payload);
+      GeometryUtils.fuckYouError(msg, err);
+      log.error(msg);
+      throw new RuntimeException(msg, err);
     }
   }
 
   @Override
   public Schema outputSchema(Schema input)
   {
-    return new Schema(new Schema.FieldSchema("geo_json", DataType.CHARARRAY));
+    try {
+      String field_name = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, opName());
+      return new Schema(new Schema.FieldSchema(field_name, input.getField(0).schema, DataType.BAG));
+    } catch (FrontendException err) { throw new RuntimeException(err); }
+
+  }
+  
+  protected String opName() {
+    return this.getClass().getSimpleName().replaceFirst("^Geo", "");
   }
 }
+      //
+      // Tuple result_tup = TupleFactory.getInstance().newTuple();
+      // result_tup.append(pt);
+      // result_bag.add(result_tup);
+      // //
+      // for (Tuple feat_a_tup : bag_a) {
+      //   result_bag.add(feat_a_tup);
+      // }

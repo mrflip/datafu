@@ -64,6 +64,16 @@ public class GeometryUtils {
     }
   }
 
+  public static Envelope2D getEnvelope2D(OGCGeometry geom) {
+    return getEnvelope2D(geom.getEsriGeometry());
+  }
+
+  public static Envelope2D getEnvelope2D(Geometry geom) {
+    Envelope2D env = new Envelope2D();
+    geom.queryEnvelope2D(env);
+    return env;
+  }
+  
   /**
    * A snippet of the payload that can be dumped to the console or a backtrace.
    *

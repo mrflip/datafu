@@ -126,7 +126,7 @@ public class SpatialJoinTests extends PigTests
   };
 
   @Test
-  public void aQuadtileDecomposeTest() throws Exception
+  public void zQuadtileDecomposeTest() throws Exception
   {
     List<Quadtile> qt_list;
 
@@ -150,12 +150,33 @@ public class SpatialJoinTests extends PigTests
     for (Quadtile qt: qt_list) {
       GeometryUtils.dump("%s", qt);
     }
-
-
-
   }
 
 
+  /**
+  DEFINE QuadDecompose datafu.pig.geo.QuadDecompose();
+  feats_a   = LOAD 'input' as (feat:chararray);
+  all_a     = GROUP feats_a ALL;
+  --
+  joined = FOREACH all_a {
+    GENERATE
+      QuadDecompose(feats_a, 'POINT( 20 20 )'),
+      QuadDecompose(feats_a, 'POINT( 40 40 )') AS foo
+      ;
+  };
+  STORE joined INTO 'output';
+   */
+  @Multiline
+  private String quadDecompTest;
 
+  @Test
+  public void quadDecompTest() throws Exception
+  {
+    PigTest test = createPigTestFromString(quadDecompTest);
+    this.writeLinesToFile("input", EXAMPLE_SHAPES);
+    test.runScript();
+    assertOutput(test, "joined",
+      "(POLYGON ((-84.3 24, -66.4 24, -66.4 48.8, -84.3 48.8, -84.3 24)))");
+  }
 
 }
