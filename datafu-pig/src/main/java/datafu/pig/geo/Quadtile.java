@@ -90,11 +90,7 @@ public class Quadtile implements Comparable {
    * if coarser than the current ZL, chops off bits until the proper height is reached.
    */
   public long zoomedQuadkey(int target_zl) {
-    if (target_zl > zl) {
-      return qk << 2*(target_zl - zl);
-    } else {
-      return qk >> 2*(zl - target_zl);
-    }
+    return QuadkeyUtils.quadkeyZoomBy(this.qk, this.zl - target_zl);
   }
 
   public int[] zoomedTileIJ(int target_zl) {
@@ -271,8 +267,24 @@ public class Quadtile implements Comparable {
     }
   }
 
+  /**
+   *
+   * Extends both tiles' quadkeys to the finest zoom level of either, comparing
+   * them in z-order from 0000... to 3333...
+   *
+   * If one tile is at a coarser zoom level than the other, it is treated as its
+   * top-left descendant at the finer zoom, and precedes any of its descendants.
+   *
+   * These base-4 string handles are in sorted order:
+   *
+   *     0001  001   0010  0013  02    0200
+   */
   public int compareTo(Object obj) {
-    return Long.compare(qk, ((Quadtile)obj).quadkey());
+    Quadtile other = (Quadtile)obj;
+    int target_zl = Math.max( this.zl, other.zoomlvl() );
+    //
+    int q_cmp = Long.compare( this.zoomedQuadkey(target_zl), other.zoomedQuadkey(target_zl) );
+    return (q_cmp == 0 ? Integer.compare(this.zl, other.zl) : 0);
   }
 
   public void dump(String fmt, Object... args) {
@@ -280,27 +292,51 @@ public class Quadtile implements Comparable {
     System.err.println(String.format(fmt, args));
   }
 
-  // public static class QuadkeyComparator implements Comparator<Quadtile> {
-  // }
+  /**
+   *
+   * Sorts tiles by z-order, snaking from 0000... to 3333... so that nearby
+   * tiles spatially are typically nearby in z-order.
+   *
+   * If one tile is at a coarser zoom level than the other, it is treated as its
+   * top-left descendant at the finer zoom, and precedes any of its descendants.
+   *
+   * These base-4 string handles are in sorted order:
+   *
+   *     0001  001   0010  0013  02    0200
+   */
+  public static class QuadkeyComparator implements Comparator<Quadtile> {
+    
+    /** z-order, breaking ties with coarse zoom level first  */
+    public int compare(Quadtile qt_a, Quadtile qt_b) {
+      int zl_a = qt_a.zoomlvl(), zl_b = qt_b.zoomlvl();
+      int comp_zl = Math.max(zl_a, zl_b);
+      //
+      int q_cmp = Long.compare( qt_a.zoomedQuadkey(comp_zl), qt_b.zoomedQuadkey(comp_zl) );
+      return (q_cmp == 0 ? Integer.compare(zl_a, zl_b) : q_cmp);
+    }    
+  }
 
   /**
-   * Sorts quadtiles by IJ (vertically) and then I (horizontally), like you read a book.
+   * Sorts quadtiles by IJ (vertically) and then I (horizontally), like you read
+   * a book (and breaking ties in favor of the tile at coarser zoom level). This
+   * sort order is useful for dumping tiles to screen.
+   *
+   * If one tile is at a coarser zoom level than the other, it is treated as its
+   * top-left descendant at the finer zoom, and precedes any of its descendants.
    */
   public static class TileIJComparator implements Comparator<Quadtile> {
-    public final int comp_zl;
 
-    public TileIJComparator(int comparison_zl) {
-      this.comp_zl = comparison_zl;
-    }
-
+    /** top-to-bottom, left-to-right, break ties with coarse zoom level first  */
     public int compare(Quadtile qt_a, Quadtile qt_b){
+      int zl_a = qt_a.zoomlvl(), zl_b = qt_b.zoomlvl();
+      int comp_zl = Math.max(zl_a, zl_b);
+      //
       int[] tij_a = qt_a.zoomedTileIJ(comp_zl);
       int[] tij_b = qt_b.zoomedTileIJ(comp_zl);
-
-      int i_cmp  = Integer.compare(tij_a[1], tij_b[1]);
-      int j_cmp  = Integer.compare(tij_a[0], tij_b[0]);
-      int zl_cmp = Integer.compare(qt_a.zoomlvl(), qt_b.zoomlvl());
-      return (i_cmp == 0 ? (j_cmp == 0 ? zl_cmp : j_cmp) : i_cmp);
+      //
+      int i_cmp  = Integer.compare(tij_a[1], tij_b[1]); if (i_cmp != 0) { return i_cmp; }
+      int j_cmp  = Integer.compare(tij_a[0], tij_b[0]); if (j_cmp != 0) { return j_cmp; }
+      return Integer.compare(zl_a, zl_b);
     }
   }
 

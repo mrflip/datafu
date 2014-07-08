@@ -72,6 +72,14 @@ public class SpatialJoinTests extends PigTests
     "POLYGON (( 41 40, 41 120, 121 120, 121 40, 41 40 ))",
     "POLYGON (( 40 40, 78 120, 120 120, 120 40, 40 40 ))",
   };
+  
+  public final static String[] EXAMPLE_POINTS = {
+    "POINT( 40 40 )", // not in #3
+    "POINT( 48 42 )", // in all 
+    "POINT( 42 50 )", // in the bbox of all, but not actually in #4 
+    "POINT( 3   3 )", // in none
+  };
+  
 
   public final static String[][] EXAMPLE_LAYOUTS = {
     { // "POLYGON (( 10 10, 10  90,  95  90,  95 10, 10 10 ))",
@@ -130,23 +138,23 @@ public class SpatialJoinTests extends PigTests
   {
     List<Quadtile> qt_list;
 
-    // for (int idx = 0; idx < EXAMPLE_SHAPES.length; idx++) {
-    //   String test_shape = EXAMPLE_SHAPES[idx];
-    //   //
-    //   qt_list  = Quadtile.quadtilesCovering(
-    //     OGCGeometry.fromText(test_shape), 4, 7, proj_1280);
-    //   //
-    // Collections.sort(qt_list, new Quadtile.TileIJComparator(7));
-    //   for (Quadtile qt: qt_list) {
-    //     GeometryUtils.dump("%s %3d %3d", qt, qt.zoomedTileIJ(7)[0], qt.zoomedTileIJ(7)[1]);
-    //   }
-    //   GeometryUtils.dump("");
-    //   QuadtileTests.assertQuadtileHandlesMatch(qt_list, EXAMPLE_LAYOUTS[idx]);
-    // }
+    for (int idx = 0; idx < EXAMPLE_SHAPES.length; idx++) {
+      String test_shape = EXAMPLE_SHAPES[idx];
+      //
+      qt_list  = Quadtile.quadtilesCovering(
+        OGCGeometry.fromText(test_shape), 4, 7, proj_1280);
+      //
+    Collections.sort(qt_list, new Quadtile.QuadkeyComparator());
+      for (Quadtile qt: qt_list) {
+        // GeometryUtils.dump("%s %3d %3d", qt, qt.zoomedTileIJ(7)[0], qt.zoomedTileIJ(7)[1]);
+      }
+      GeometryUtils.dump("");
+      QuadtileTests.assertQuadtileHandlesMatch(qt_list, EXAMPLE_LAYOUTS[idx]);
+    }
 
     Quadtile parent_qt = new Quadtile(1, 0, 3, proj_1280);
     qt_list = parent_qt.descendantsAt(5);
-    Collections.sort(qt_list, new Quadtile.TileIJComparator(5));
+    Collections.sort(qt_list, new Quadtile.TileIJComparator());
     for (Quadtile qt: qt_list) {
       GeometryUtils.dump("%s", qt);
     }
@@ -155,14 +163,13 @@ public class SpatialJoinTests extends PigTests
 
   /**
   DEFINE QuadDecompose datafu.pig.geo.QuadDecompose();
-  feats_a   = LOAD 'input' as (feat:chararray);
-  all_a     = GROUP feats_a ALL;
+  feats_a   = LOAD 'shapes' as (feat:chararray);
+  feats_b   = LOAD 'points' as (feat:chararray);
+  all_feats = COGROUP feats_a ALL, feats_b ALL;
   --
-  joined = FOREACH all_a {
+  joined = FOREACH all_feats {
     GENERATE
-      QuadDecompose(feats_a, 'POINT( 20 20 )'),
-      QuadDecompose(feats_a, 'POINT( 40 40 )') AS foo
-      ;
+      FLATTEN( QuadDecompose(feats_a, feats_b) );
   };
   STORE joined INTO 'output';
    */
@@ -173,7 +180,8 @@ public class SpatialJoinTests extends PigTests
   public void quadDecompTest() throws Exception
   {
     PigTest test = createPigTestFromString(quadDecompTest);
-    this.writeLinesToFile("input", EXAMPLE_SHAPES);
+    this.writeLinesToFile("shapes", EXAMPLE_SHAPES);
+    this.writeLinesToFile("points", EXAMPLE_POINTS);
     test.runScript();
     assertOutput(test, "joined",
       "(POLYGON ((-84.3 24, -66.4 24, -66.4 48.8, -84.3 48.8, -84.3 24)))");

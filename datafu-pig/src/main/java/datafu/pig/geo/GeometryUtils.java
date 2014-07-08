@@ -6,6 +6,29 @@ import com.esri.core.geometry.ogc.*;
 public class GeometryUtils {
   public static final int WKID_UNKNOWN = 0;
 
+  /**
+   *
+   * Extracts a fully-baked OGCGeometry object from its opaque pig payload. This
+   * method will take care of receiving a null or empty payload, logging and/or
+   * re-throwing error conditions, and all other decisions. If you get a null
+   * record back, you should silently skip it and carry on; any exceptions
+   * raised should belong to this method.
+   *
+   * Standard stanza:
+   *
+   *    OGCGeometry geom = GeometryUtils.payloadToGeom(payload);
+   *    if (geom == null){ return null; } // or continue, or whatever
+   *
+   * Unless you _really_ need to have different behavior than all the other
+   * spatial methods, don't do any handling beyond skipping a null response.
+   *
+   * Also you will notice that the payload is not so opaque as we claimed. It's
+   * a text string holding the geometry description in WKT (well-known text)
+   * format. Besides being bulky and inefficient to de/serialize, it washes out
+   * desirable metadata. But! it's really friendly to work with, and means we
+   * can concentrate on getting the whole works functional.
+   *
+   */
   public static OGCGeometry payloadToGeom(String payload) {
     try {
       if (payload == null || payload.length() == 0){
@@ -18,6 +41,8 @@ public class GeometryUtils {
     catch (Exception err) {
       String msg = "Error loading payload ("+err.getMessage()+"): "+printablePayload(payload);
       System.err.println(msg);
+      // TODO: log and return null. During development, re-raise.
+      // return null;
       throw new RuntimeException(msg, err);
     }
   }

@@ -183,14 +183,25 @@ public final class QuadkeyUtils {
   }
 
   /**
-   * Zoom quadkey out (coarser zl) by the given number of levels.
+   * Zoom quadkey out (coarser zl) by the given number of levels. A negative difference
+   * will zoom in by choosing the top left child tile each time.
+   *
+   * Using tile with base-4 string handle 012311, for example:
+   *
+   *     zoom by  0  //  012311
+   *     zoom by  2  //  0123
+   *     zoom by -3  //  01231100
+   *
    * @param quadkey
    * @param zldiff  Number of zoom levels to increase. Must not be negative
    * @return quadkey of the specified parent, or the same quadkey for zldiff=0
    */
-  public static long quadkeyZoomBy(long quadkey, int zldiff) throws IllegalArgumentException {
-    if (zldiff < 0) { throw new IllegalArgumentException("Cannot zoom in on a quadkey; we wouldn't know which one to choose"); }
-    return quadkey >> zldiff;
+  public static long quadkeyZoomBy(long quadkey, int zldiff) {
+    if (zldiff >= 0) { 
+      return quadkey >> 2*zldiff;
+    } else {
+      return quadkey << (-2*zldiff);
+    }
   }
 
   /**
