@@ -29,7 +29,7 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.Operator;
 import com.esri.core.geometry.OperatorFactoryLocal;
 
-import com.esri.core.geometry.IOperatorAWithB;
+import com.esri.core.geometry.CombineOperator;
 
 /**
  * GeoAction  -- (gA, gB) -> geom
@@ -46,7 +46,7 @@ import com.esri.core.geometry.IOperatorAWithB;
  */
 public class GeoSetOperation extends SimpleEvalFunc<String>
 {
-  public IOperatorAWithB  operator;
+  public CombineOperator  operator;
   public String           op_name;
   public SetOperationType op_type;
 
@@ -68,7 +68,7 @@ public class GeoSetOperation extends SimpleEvalFunc<String>
 
     switch (op_type){
     case INTERSECTION:
-      this.operator = (IOperatorAWithB)OperatorFactoryLocal.getInstance()
+      this.operator = (CombineOperator)OperatorFactoryLocal.getInstance()
         .getOperator(Operator.Type.Intersection);
     default:
     }

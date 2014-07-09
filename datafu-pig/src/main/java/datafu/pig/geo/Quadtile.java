@@ -43,6 +43,7 @@ public class Quadtile implements Comparable {
   private final int  zl;
   private final int  ti;
   private final int  tj;
+  private final long quadord;
   private final Projection proj;
   //
   private Envelope envelope;
@@ -75,13 +76,23 @@ public class Quadtile implements Comparable {
     this(QuadkeyUtils.quadstrToQuadkey(quadstr), QuadkeyUtils.quadstrToZl(quadstr), proj);
   }
 
+  public static Quadtile fromQuadord(long quadord, Projection projection) {
+    long[] qk_zl = QuadkeyUtils.quadkeyZlFromQuadord(quadord);
+    return new Quadtile(qk_zl[0], (int)qk_zl[1], projection);
+  }
+
+  /** @returns  quadstr -- the base-4 representation of the quadkey as a string, padded so that its length matches the zoom level */
   public String quadstr() { return QuadkeyUtils.quadkeyToQuadstr(qk, zl); }
+  /** @returns  quadkey -- bit-interleaved long holding the i/j coordinates, such that it gives a recursive z-ordering to the space */
   public long   quadkey() { return qk; }
+  /** @returns  zoomlvl --  level of detail from 0 (whole grid) to 30 (finest scale). */
   public int    zoomlvl() { return zl; }
+  /** @returns  tile_i -- the first (horizontal) coordinate on the grid, reading from 0 on the left to (2^zoomlvl)-1 on the right.  */
   public int    tileI()   { return ti; }
+  /** @returns  tile_j -- the second (vertical) coordinate on the grid, reading from 0 on the top to (2^zoomlvl)-1 on the bottom  */
   public int    tileJ()   { return tj; }
-  public int[]  tileIJ()  { int[] tile_ij  = { ti, tj } ;     return tile_ij;  }
-  public int[]  tileIJZ() { int[] tile_ijz = { ti, tj, zl } ; return tile_ijz; }
+  /** @returns  coordinates as an array: { tile_i, tile_j, zoomlvl } */
+  public int[]  tileIJ()  { int[] tile_ij_zl = { ti, tj, zl } ; return tile_ij_zl; }
 
   /**
    *
@@ -91,6 +102,41 @@ public class Quadtile implements Comparable {
    */
   public long zoomedQuadkey(int target_zl) {
     return QuadkeyUtils.quadkeyZoomBy(this.qk, this.zl - target_zl);
+  }
+
+  public long[] partitionedKeyOld(int target_zl) {
+    if (zl < target_zl) {
+      int shift = 2*(target_zl - zl);
+      // we're coarser (eg at 6 bits of zl-3, want 10 bits of zl-5)
+      // zoom in by shifting left; zero suffix
+      return new long[] { (qk << shift), (long)zl, (long)0 };
+    } else {
+      int shift = 2*(zl - target_zl);
+      // we're finer (eg have 12 bits of zl-6, want 10 bits of zl-5)
+      // zoom out by shifting right; discarded bits become suffix
+      long prefix = qk >> shift;
+      long suffix = qk ^ (prefix << shift);
+      return new long[] { prefix, (long)zl, suffix };
+    }
+  }
+
+  /**
+   *
+   * Returns a key that naturally sorts in z-order, d
+   *
+   * * The zl-3 quadtile # 103 has quadordKey() 103_0000_0000_0..._0003.
+   * * Its zl-8 descendant 10310312 has quadord 103_1031_2000_0..._0020.
+   * * Her direct nw child 103103120 sorts using 103_1031_2000_0..._0021 -- same
+   *   position bits, but following its parent due to higher zoom level.
+   * * Descendant 1031_0312_0123_0123_0123_0123, at zl-28 (highest allowed),
+   *   has quadord key 103_1031_2012_3012_3012_3012_3130.
+   *
+   * In this scheme bits 64, 63, and 6 will always be zero. The MSB (sign bit)
+   * is reserved to pull the UTF-8 trick: set it to indicate special handling.
+   */
+  public long quadord() {
+    int shift = 2*(31 - zl);
+    return (qk << shift | zl);
   }
 
   public int[] zoomedTileIJ(int target_zl) {
@@ -197,6 +243,17 @@ public class Quadtile implements Comparable {
     return decompose(getEnvelope(), target_zl, target_zl);
   };
 
+  /**
+   * True if this tile contains other
+   */
+  public boolean contains(Quadtile other) {
+    int zl_o = other.zoomlvl();
+    // can't contain if it is at coarser zoom level
+    if (zl_o < zl){ return false; }
+    // contain if its rightshifted prefix matches mine
+    long qk_o_prefix = other.quadkey() >>> (2*(zl_o-zl));
+    return (qk_o_prefix == qk);
+  }
 
   /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    *
@@ -281,10 +338,7 @@ public class Quadtile implements Comparable {
    */
   public int compareTo(Object obj) {
     Quadtile other = (Quadtile)obj;
-    int target_zl = Math.max( this.zl, other.zoomlvl() );
-    //
-    int q_cmp = Long.compare( this.zoomedQuadkey(target_zl), other.zoomedQuadkey(target_zl) );
-    return (q_cmp == 0 ? Integer.compare(this.zl, other.zl) : 0);
+    return Long.compare(this.quadordKey(), other.quadordKey());
   }
 
   public void dump(String fmt, Object... args) {
@@ -305,7 +359,27 @@ public class Quadtile implements Comparable {
    *     0001  001   0010  0013  02    0200
    */
   public static class QuadkeyComparator implements Comparator<Quadtile> {
-    
+
+    /** z-order quadkey, breaking ties zoom level, coarser first */
+    public int compare(Quadtile qt_a, Quadtile qt_b) {
+      return Long.compare(qt_a.quadordKey(), qt_b.quadordKey());
+    }
+  }
+
+  /**
+   *
+   * Sorts tiles by z-order, snaking from 0000... to 3333... so that nearby
+   * tiles spatially are typically nearby in z-order.
+   *
+   * If one tile is at a coarser zoom level than the other, it is treated as its
+   * top-left descendant at the finer zoom, and precedes any of its descendants.
+   *
+   * These base-4 string handles are in sorted order:
+   *
+   *     0001  001   0010  0013  02    0200
+   */
+  public static class QuadkeyComparatorOld implements Comparator<Quadtile> {
+
     /** z-order, breaking ties with coarse zoom level first  */
     public int compare(Quadtile qt_a, Quadtile qt_b) {
       int zl_a = qt_a.zoomlvl(), zl_b = qt_b.zoomlvl();
@@ -313,7 +387,7 @@ public class Quadtile implements Comparable {
       //
       int q_cmp = Long.compare( qt_a.zoomedQuadkey(comp_zl), qt_b.zoomedQuadkey(comp_zl) );
       return (q_cmp == 0 ? Integer.compare(zl_a, zl_b) : q_cmp);
-    }    
+    }
   }
 
   /**

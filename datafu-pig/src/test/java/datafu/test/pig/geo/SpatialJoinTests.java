@@ -137,26 +137,49 @@ public class SpatialJoinTests extends PigTests
   public void zQuadtileDecomposeTest() throws Exception
   {
     List<Quadtile> qt_list;
-
+  
     for (int idx = 0; idx < EXAMPLE_SHAPES.length; idx++) {
       String test_shape = EXAMPLE_SHAPES[idx];
       //
       qt_list  = Quadtile.quadtilesCovering(
         OGCGeometry.fromText(test_shape), 4, 7, proj_1280);
       //
-    Collections.sort(qt_list, new Quadtile.QuadkeyComparator());
+      Collections.sort(qt_list, new Quadtile.QuadkeyComparator());
       for (Quadtile qt: qt_list) {
         // GeometryUtils.dump("%s %3d %3d", qt, qt.zoomedTileIJ(7)[0], qt.zoomedTileIJ(7)[1]);
       }
       GeometryUtils.dump("");
       QuadtileTests.assertQuadtileHandlesMatch(qt_list, EXAMPLE_LAYOUTS[idx]);
     }
-
+  
     Quadtile parent_qt = new Quadtile(1, 0, 3, proj_1280);
     qt_list = parent_qt.descendantsAt(5);
     Collections.sort(qt_list, new Quadtile.TileIJComparator());
     for (Quadtile qt: qt_list) {
       GeometryUtils.dump("%s", qt);
+    }
+  }
+
+  @Test
+  public void sortingQuadtileTest() throws Exception
+  {
+    List<Quadtile> qt_list, comp_1_list, comp_2_list;
+
+    for (int idx = 0; idx < EXAMPLE_SHAPES.length; idx++) {
+      String test_shape = EXAMPLE_SHAPES[idx];
+      //
+      qt_list  = Quadtile.quadtilesCovering(
+        OGCGeometry.fromText(test_shape), 4, 7, proj_1280);
+      comp_1_list = new ArrayList<Quadtile>(qt_list);
+      comp_2_list = new ArrayList<Quadtile>(qt_list);
+      //
+      Collections.sort(qt_list);
+      Collections.sort(comp_1_list, new Quadtile.QuadkeyComparator());
+      Collections.sort(comp_2_list, new Quadtile.QuadkeyComparatorOld());
+      //
+      GeometryUtils.dump("\n%s\n%s\n%s\n", qt_list, comp_1_list, comp_2_list);
+      Assert.assertEquals(qt_list, comp_1_list);
+      Assert.assertEquals(qt_list, comp_2_list);
     }
   }
 

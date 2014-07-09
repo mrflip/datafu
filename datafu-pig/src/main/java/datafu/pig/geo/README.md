@@ -119,9 +119,12 @@ Bold == works; TODO == soon; strikethrough == later
 * ~~GeoAOverlapsB~~
 * ~~GeoATouchesB~~
 * ~~GeoAWithinB~~
+* ~~AlwaysTrue~~,
+* ~~AlwaysFalse~~,
 * ~~GeoABRelatingMatrix~~  returns tuple with the DE-9IM matrix
 * ~~GeoAllRelating~~/~~GeoAnyRelating~~/~~GeoNoneRelating~~: With bag, All? / Any? / None? have relation
 * ~~GeoDistance~~
+* ~~GeoIsEnvIntersects~~
 
 #### `GeoIsPropFunc`s -- geom -> boolean
 
@@ -129,7 +132,6 @@ Bold == works; TODO == soon; strikethrough == later
 * ~~GeoIsClosed~~
 * ~~GeoIsEmpty~~
 * ~~GeoIsRing~~
-* ~~GeoIsEnvIntersects~~
 * ~~GeoFilter~~ --With bag, filter for it
 
 #### Conversion
@@ -168,7 +170,44 @@ Bold == works; TODO == soon; strikethrough == later
 * **doohickey to render shapes onto a d3 map** (_works_)
 * **TODO** make doohickey and code above work nicely together
 
-### (ignore)
+## Interfaces
+
+
+* A spatial partitioning and ordering mechanism should be first class and pig should be built around it.
+  - that _doesn't_ mean you're tied to using the simple quadtile scheme. Anything that traces an order through space that we can use to partition nearby objects works.
+  - (partition prefix, zl (height), secondary sort, 
+
+### Geometry Type
+
+* each has
+  - a geometry object: OGCGeometry? Geometry? If I understand right, we want OGCGeometry as that would in principle allow alternate backends.
+  - ?an envelope, or a lazy-eval'ed envelope?
+  - a quadkey+zoom level
+
+* means to serialize
+  - quadkey, zoom level, envelope (for sorting)
+  - magic word wtih bits that say it's a geometry, the version number, and the subtype (point..multiline, tile, envelope)
+  - the geometry object, efficiently serialized. Unless WKB is widly inefficient either to pack/unpack or in space consumed, it seems like a reasonable choice. Look at how Hive UDFs did it. 
+
+* sub types:
+  - generic `geometry`; `point`, `multipoint`, `polygon`, `multipolygon`, `line`, `multiline`
+  - envelope and tile: could be tuple (xmin, ymin, xmax, ymax), (long, zl), or could both be maps. But we want some sugar to make them easy to schematize. Maybe point also gets special treatment.
+  - feature -- tuple of `(geometry, ...properties...)`
+  - geometry collection -- bag{g:(geometry)}; feature collection is bag{f:(geometry, ...properties...)}
+  - I think the common case is that the SpatialReference is uniform across a type
+    - so it should be specified in the schema and _not_ accommodated in the type
+    - if that's not OK, you must ride the wkid along in its own field.
+    
+
+* `apache.pig.data.DataType`: `extractTypeFromClass`;
+  - `compare` types (sort between string and map?)
+
+* sorting:
+  - by adjusted quadkey: (zoom the coarser to the zl of the finer, then order by quadkey. Break ties by zl, then by y coord, x coord, z coord, m coord.
+  - 
+
+
+## (ignore)
 
 Here's the signatures of all the esri geometry-api operators
 

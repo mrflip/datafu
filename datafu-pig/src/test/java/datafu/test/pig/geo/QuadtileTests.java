@@ -78,7 +78,7 @@ public class QuadtileTests extends PigTests
     Assert.assertEquals(AUSTIN_TILEIJ_16[1], qt.tileJ());
     Assert.assertEquals(AUSTIN_QUADKEY,      qt.quadkey());
     assertTileIJEquals(AUSTIN_TILEIJ_16,     qt.tileIJ());
-    assertTileIJZEquals(AUSTIN_TILEIJ_16,    qt.tileIJZ());
+    assertTileIJZLEquals(AUSTIN_TILEIJ_16,     qt.tileIJ());
   }
 
   @Test
@@ -309,21 +309,20 @@ public class QuadtileTests extends PigTests
    *
    */
 
-  private void assertTileIJEquals(int[] exp_ijz, int[] res_ijz) {
-    Assert.assertEquals(exp_ijz[0], res_ijz[0]);
-    Assert.assertEquals(exp_ijz[1], res_ijz[1]);
-    // Assert.assertEquals(exp_ijz[2], res_ijz[2]);
+  private void assertTileIJEquals(int[] exp_ij, int[] res_ij) {
+    Assert.assertEquals(exp_ij[0], res_ij[0]);
+    Assert.assertEquals(exp_ij[1], res_ij[1]);
   }
 
-  private void assertTileIJZEquals(int[] exp_ijz, int[] res_ijz) {
-    Assert.assertEquals(exp_ijz[0], res_ijz[0]);
-    Assert.assertEquals(exp_ijz[1], res_ijz[1]);
-    Assert.assertEquals(exp_ijz[2], res_ijz[2]);
+  private void assertTileIJZLEquals(int[] exp_ij_zl, int[] res_ij_zl) {
+    Assert.assertEquals(exp_ij_zl[0], res_ij_zl[0]);
+    Assert.assertEquals(exp_ij_zl[1], res_ij_zl[1]);
+    Assert.assertEquals(exp_ij_zl[2], res_ij_zl[2]);
   }
 
-  private void assertQkZlEquals(long[] res_qkzl, long... exp_qkzl) {
-    Assert.assertEquals(exp_qkzl[0], res_qkzl[0]);
-    Assert.assertEquals(exp_qkzl[1], res_qkzl[1]);
+  private void assertQkZlEquals(long[] res_qk_zl, long... exp_qk_zl) {
+    Assert.assertEquals(exp_qk_zl[0], res_qk_zl[0]);
+    Assert.assertEquals(exp_qk_zl[1], res_qk_zl[1]);
   }
 
   private void assertLnglatsWithin(double[] exp_ll, double[] res_ll, double eps) {

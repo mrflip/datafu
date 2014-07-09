@@ -88,7 +88,11 @@ import org.apache.commons.logging.LogFactory;
 public final class QuadkeyUtils {
   private static final Log LOG = LogFactory.getLog(QuadkeyUtils.class);
 
-  public static final int   MAX_ZOOM_LEVEL   = 30;
+  /**
+   * 28 levels of detail means 72,000 trillion tiles, 1-inch earth resolution.
+   * It also lets us pack the left-shifted quadkey and zoom level into a long.
+   */
+  public static final int   MAX_ZOOM_LEVEL   = 28;
 
   // The arctan/log/tan/sinh business gives slight loss of precision. We could
   // live with that on the whole, but it can push the boundary of a tile onto
@@ -153,12 +157,12 @@ public final class QuadkeyUtils {
    * Quadkey handle (Morton number) of tile with given tile i/j indices.
    */
   public static long tileIJToQuadkey(int ti, int tj) {
-    // convert it 8 bits a piece: x evens, y odds
+    // convert it 8 bits a piece: x evens, y odds. ">>>" means logical bit shift.
     long qk =
-      MORTON_LUT[ ti        & 0xff]       | MORTON_LUT[ tj        & 0xff] << 1  |
-      MORTON_LUT[(ti >>  8) & 0xff] << 16 | MORTON_LUT[(tj >>  8) & 0xff] << 17 |
-      MORTON_LUT[(ti >> 16) & 0xff] << 32 | MORTON_LUT[(tj >> 16) & 0xff] << 33 |
-      MORTON_LUT[(ti >> 24) & 0xff] << 48 | MORTON_LUT[(tj >> 24) & 0xff] << 49 ;
+      MORTON_LUT[ ti         & 0xff]       | MORTON_LUT[ tj         & 0xff] << 1  |
+      MORTON_LUT[(ti >>>  8) & 0xff] << 16 | MORTON_LUT[(tj >>>  8) & 0xff] << 17 |
+      MORTON_LUT[(ti >>> 16) & 0xff] << 32 | MORTON_LUT[(tj >>> 16) & 0xff] << 33 |
+      MORTON_LUT[(ti >>> 24) & 0xff] << 48 | MORTON_LUT[(tj >>> 24) & 0xff] << 49 ;
     return qk;
   }
 
@@ -169,7 +173,7 @@ public final class QuadkeyUtils {
    * @return { tile_i, tile_j }
    */
   public static int[] quadkeyToTileIJ(long qk) {
-    return new int[] { uninterleaveBits(qk), uninterleaveBits(qk >> 1) };
+    return new int[] { uninterleaveBits(qk), uninterleaveBits(qk >>> 1) };
   }
   /**
    * Tile I/J indices and zoom level of a tile given by its quadkey and zoom level.
@@ -179,7 +183,7 @@ public final class QuadkeyUtils {
    * @return { tile_i, tile_j, zoom level }
    */
   public static int[] quadkeyToTileIJ(long qk, int zl) {
-    return new int[] { uninterleaveBits(qk), uninterleaveBits(qk >> 1), zl };
+    return new int[] { uninterleaveBits(qk), uninterleaveBits(qk >>> 1), zl };
   }
 
   /**
@@ -198,10 +202,52 @@ public final class QuadkeyUtils {
    */
   public static long quadkeyZoomBy(long quadkey, int zldiff) {
     if (zldiff >= 0) { 
-      return quadkey >> 2*zldiff;
+      return quadkey >>> 2*zldiff;
     } else {
       return quadkey << (-2*zldiff);
     }
+  }
+
+  /**
+   *
+   * Returns a key that naturally sorts in Z-order even across zoom levels -- a
+   * parent (containing) tile always sorts in front of all its descendants, but
+   * after its predecessor and all its predecessor's descendants. It does so by
+   * left-aligning the quadkey into bits 62..7, and the zoom level into bits
+   * 5..1, leaving bits 64, 63 and 6 blank.
+   *
+   * * The zl-3 quadtile # 103 has quadordKey() 103_0000_0000_0..._0003.
+   * * Its zl-8 descendant 10310312 has quadord 103_1031_2000_0..._0020.
+   * * Her direct nw child 103103120 sorts using 103_1031_2000_0..._0021 -- same
+   *   position bits, but following its parent due to higher zoom level.   
+   * * Descendant 1031_0312_0123_0123_0123_0123, at zl-28 (highest allowed),
+   *   has quadord key 103_1031_2012_3012_3012_3012_3130.
+   * 
+   * In this scheme bits 64, 63, and 6 will always be zero. The MSB (sign bit)
+   * is reserved to pull the UTF-8 trick: set it to indicate special handling.
+   */
+  public static long quadordQuadkey(long qk, int zl) {
+    int shift = 2*(31 - zl);
+    return (qk << shift | zl);
+  }
+  
+  /**
+   * Turns a quadord key into a quadkey
+   * @see quadordQuadkey
+   */
+  public static long[] quadkeyZlFromQuadord(long quadord) {
+    long zl = quadord & 0x1fL;
+    return new long[] { quadord >>> zl, zl };
+  }
+
+  public static long QUADORD_ZL_MASK = 0x000000000000001FL;
+  public static long QUADORD_QK_MASK = 0x3fffffffffffffc0L; // "03333333333333333333333333333000"
+  public static boolean quadordAContainsB(long sk_a, long sk_b) {
+    int zl_a = (int)(sk_a & QUADORD_ZL_MASK), zl_b = (int)(sk_b & QUADORD_ZL_MASK);
+    // a can't contain if b is at coarser zoom level
+    if (zl_b < zl_a){ return false; }
+    long qk_b_prefix = sk_b & (QUADORD_QK_MASK << (2*(zl_b - zl_a)));
+    return (qk_b_prefix == (sk_a & QUADORD_QK_MASK));
   }
 
   /**
@@ -314,8 +360,8 @@ public final class QuadkeyUtils {
         long[] qk_zl = { qk_1, zl };
         return qk_zl;
       }
-      qk_1 >>= 2;
-      qk_2 >>= 2;
+      qk_1 >>>= 2;
+      qk_2 >>>= 2;
     }
     throw new RuntimeException("Quadkeys out of range: "+qk_1+" or "+qk_2+" have more bits than I can shift.");
   }
@@ -415,22 +461,12 @@ public final class QuadkeyUtils {
   }
 
   /**
-   * I / J indices for tile given by that quadstr string handle
-   *
-   * @param   quadstr
-   * @return  { tile_i, tile_j }
-   */
-  public static int[] quadstrToTileIJ(String quadstr) {
-    return quadkeyToTileIJ( quadstrToQuadkey(quadstr) );
-  }
-
-  /**
    * I / J indices and zoom level for tile given by that quadstr string handle
    *
    * @param   quadstr
-   * @return  { tile_i, tile_j }
+   * @return  { tile_i, tile_j, zoomlvl }
    */
-  public static int[] quadstrToTileIJZ(String quadstr) {
+  public static int[] quadstrToTileIJ(String quadstr) {
     return quadkeyToTileIJ( quadstrToQuadkey(quadstr), quadstrToZl(quadstr) );
   }
 
@@ -530,8 +566,8 @@ public final class QuadkeyUtils {
    * @return        { longitude, latitude }
    */
   public static double[] quadstrToWorld(String quadstr, Projection proj) {
-    int[] tile_ijz = quadstrToTileIJZ(quadstr);
-    return tileIJToWorld(tile_ijz[0], tile_ijz[1], tile_ijz[2], proj);
+    int[] tile_ij_zl = quadstrToTileIJ(quadstr);
+    return tileIJToWorld(tile_ij_zl[0], tile_ij_zl[1], tile_ij_zl[2], proj);
   }
 
   /**
@@ -594,7 +630,7 @@ public final class QuadkeyUtils {
    * @return        Highest quadkey value
    */
   public static long maxQuadkey(int zl) {
-    return (0x3FFFFFFFFFFFFFFFL >> (62 - (zl*2)));
+    return (0x3FFFFFFFFFFFFFFFL >>> (62 - (zl*2)));
   }
 
   /**
