@@ -33,7 +33,7 @@ Bold == works; TODO == soon; strikethrough == later
 * Spatial join on map side:
   - (**works**) decompose shape into quadtiles that cover it. Takes the collection of tiles covering the shape at the specified coarse zoom level of detail, and recursively decomposes them into smaller quadtiles until either the quadtile is completely contained in the shape or the finest zoom level is reached.
   - (**TODO**) make UDF
-  - cogroup on quadkey at coarsest zoom level (so everything within those largest-area tiles will land on the same reducer)
+  - cogroup on quadord at coarsest zoom level (so everything within those largest-area tiles will land on the same reducer)
 
 * (**TODO**) generic spatial join on reduce side:
   - Takes two bags of shapes on the same quadtile;
@@ -42,7 +42,7 @@ Bold == works; TODO == soon; strikethrough == later
   - all candidate pairs are emitted
 
 * (**TODO**) alternative spatial join
-  - secondary sort on full quadkey, so that all say ZL-6 tiles in set A and the corresponding tiles at ZL-6, ZL-7, ... tiles in set B can be paired off
+  - secondary sort on full quadord, so that all say ZL-6 tiles in set A and the corresponding tiles at ZL-6, ZL-7, ... tiles in set B can be paired off
   - this works when the elements of set A do not overlap with each other
 
 * (**TODO**) Spatial join and filter:
@@ -54,7 +54,7 @@ Bold == works; TODO == soon; strikethrough == later
 * **QuadtileContaining** (_works_) (geom)
 * **QuadDecomp** (_works_)       --  constant zl
 * **QuadMultiDecomp** (_works_)  --  in zl range (stop if a quad is fully contained)
-* **Quadkey,** (_works_) Quadstr
+* **Quadord,** (_works_) Quadstr
 * **TileIJ** (_works_)
 * **TileXY** (_works_)
 * **TODO** QuadtileDecompose
@@ -182,10 +182,10 @@ Bold == works; TODO == soon; strikethrough == later
 * each has
   - a geometry object: OGCGeometry? Geometry? If I understand right, we want OGCGeometry as that would in principle allow alternate backends.
   - ?an envelope, or a lazy-eval'ed envelope?
-  - a quadkey+zoom level
+  - a quadord key
 
 * means to serialize
-  - quadkey, zoom level, envelope (for sorting)
+  - quadord, envelope (for sorting)
   - magic word wtih bits that say it's a geometry, the version number, and the subtype (point..multiline, tile, envelope)
   - the geometry object, efficiently serialized. Unless WKB is widly inefficient either to pack/unpack or in space consumed, it seems like a reasonable choice. Look at how Hive UDFs did it. 
 
@@ -203,7 +203,7 @@ Bold == works; TODO == soon; strikethrough == later
   - `compare` types (sort between string and map?)
 
 * sorting:
-  - by adjusted quadkey: (zoom the coarser to the zl of the finer, then order by quadkey. Break ties by zl, then by y coord, x coord, z coord, m coord.
+  - by quadord (sort by northwest corner, parents preceding descendants
   - 
 
 

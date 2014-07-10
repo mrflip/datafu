@@ -56,7 +56,7 @@ import org.json.JSONException;
 import datafu.pig.geo.GeometryUtils;
 
 
-public class QuadDecompose extends SimpleEvalFunc<DataBag>
+public class GeoQuadDecompose extends SimpleEvalFunc<DataBag>
 {
   public static final String DEFAULT_HEIGHT = "7";
   public static final int   WGS84 = 4326;
@@ -64,10 +64,10 @@ public class QuadDecompose extends SimpleEvalFunc<DataBag>
   private int               height;
   private SpatialReference  spatialReference;
 
-  public QuadDecompose() {
+  public GeoQuadDecompose() {
     this(DEFAULT_HEIGHT);
   }
-  public QuadDecompose(String ht_str) {
+  public GeoQuadDecompose(String ht_str) {
     this.height           = Integer.parseInt(ht_str);
     this.spatialReference = SpatialReference.create(WGS84);
   }
@@ -105,7 +105,6 @@ public class QuadDecompose extends SimpleEvalFunc<DataBag>
     public int size(){
       return geoms.size();
     }
-
 
     public String toString() {
       // TODO: toString() on the list = bad when big; string build instead.

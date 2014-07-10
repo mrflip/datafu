@@ -3,8 +3,10 @@ package datafu.pig.geo;
 import com.esri.core.geometry.*;
 import com.esri.core.geometry.ogc.*;
 
-public class GeometryUtils {
+public final class GeometryUtils {
   public static final int WKID_UNKNOWN = 0;
+
+  public static int DEFAULT_SNIPPET_LENGTH = 100;
 
   /**
    *
@@ -109,13 +111,14 @@ public class GeometryUtils {
     return snippetize(payload);
   }
 
-  public static String snippetize(String str, int max_len) {
+  public static String snippetize(String str) {
+    int max_len = DEFAULT_SNIPPET_LENGTH;
     return (str.length() > max_len ? str.substring(0,max_len-3)+"..." : str);
   }
-  public static String snippetize(String str) {
-    return snippetize(str, 200);
-  }
 
+  public static String printableMessage(String template, Object... args) {
+    return snippetize(String.format(template, args));
+  }
 
   /**
    * Some of the geometry-api methods raise errors without strings.

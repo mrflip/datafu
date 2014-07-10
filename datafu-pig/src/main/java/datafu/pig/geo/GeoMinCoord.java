@@ -18,7 +18,7 @@
 package datafu.pig.geo;
 
 import datafu.pig.util.GeoScalarFunc;
-import datafu.pig.geo.LogUtils;
+import datafu.pig.geo.GeoExceptions;
 import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
@@ -86,7 +86,7 @@ public class GeoMinCoord extends GeoScalarFunc<Double> {
   class MinZHandler implements MinHandler {
     public Double handle(OGCGeometry geom) {
       if (! geom.is3D()) {
-        LogUtils.Log_Not3D(log);
+        // log(GeoExceptions.Not3DException.printable(geom));
         return null;
       }
       return geom.MinZ();
@@ -96,7 +96,7 @@ public class GeoMinCoord extends GeoScalarFunc<Double> {
   class MinMHandler implements MinHandler {
     public Double handle(OGCGeometry geom) {
       if (! geom.isMeasured()) {
-        LogUtils.Log_NotMeasured(log);
+        // log(GeoExceptions.NotMeasuredException.printable(geom));
         return null;
       }
       return geom.MinMeasure();

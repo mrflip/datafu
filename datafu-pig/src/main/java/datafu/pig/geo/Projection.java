@@ -205,18 +205,18 @@ abstract public class Projection
     else if (east >  180){ west_2 = -180;     east_2 = east-360; east   =  180; } // iterate -180..east-360 and  west..180
     //
     // Scan over tile indexes.
-    int[] tij_min = QuadkeyUtils.worldToTileIJ(west,  north,  zl, proj); // (lower tj is north)
-    int[] tij_max = QuadkeyUtils.worldToTileIJ(east,  south,  zl, proj);
-    QuadkeyUtils.addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
+    int[] tij_min = QuadtileUtils.worldToTileIJ(west,  north,  zl, proj); // (lower tj is north)
+    int[] tij_max = QuadtileUtils.worldToTileIJ(east,  south,  zl, proj);
+    QuadtileUtils.addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
     //
     // If we wrapped, also contribute the wrapped portion
     if (west_2 != 0 || east_2 != 0) {
-      tij_min = QuadkeyUtils.worldToTileIJ(west_2, north,  zl, proj);
-      tij_max = QuadkeyUtils.worldToTileIJ(east_2, south,  zl, proj);
-      QuadkeyUtils.addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
+      tij_min = QuadtileUtils.worldToTileIJ(west_2, north,  zl, proj);
+      tij_max = QuadtileUtils.worldToTileIJ(east_2, south,  zl, proj);
+      QuadtileUtils.addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
     }
     //
-    int[] tij_pt  = QuadkeyUtils.worldToTileIJ(lng, lat, zl, proj);
+    int[] tij_pt  = QuadtileUtils.worldToTileIJ(lng, lat, zl, proj);
     System.err.println(String.format("%10.5f %10.5f %2d %4d | %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f | %5d < %5d > %5d | %5d < %5d > %5d",
         lng, lat, zl, tiles.size(),
         west, south, east, north, west_2, east_2,
@@ -275,6 +275,20 @@ abstract public class Projection
   }
 
 
+  /*
+   *
+   * The mercator maptile i/j/zl scheme is used by all popular online tile servers
+   * -- open streetmap, google maps, bing maps, stamen, leaflet, others -- to
+   * serve map imagery. It relies on a mercator projection that makes serious
+   * geographers cry, but as anyone who internets should recognize is
+   * exceptionally useful and ubiquitous. This provides methods for converting
+   * from geographic coordinates to maptile handles.
+   *
+   * You don't have to use the Mercator projection for generating quadtile handles,
+   * and apart from those with "Mercator" in the name these methods apply to any
+   * quadtree scheme. The default concrete Quadtree class (QuadTreeImpl) in this
+   * library simply partitions longitude and latitude uniformly.
+   */
   public static class Mercator extends GlobeProjection {
     public static final double DEFAULT_MIN_LNG      =  -180.0;
     public static final double DEFAULT_MAX_LNG      =   180.0;
@@ -282,6 +296,21 @@ abstract public class Projection
     public static final double DEFAULT_MAX_LAT      =   85.05112878;
     public static final double DEFAULT_GLOBE_RADIUS = 6378137.0;
 
+
+  // The arctan/log/tan/sinh business gives slight loss of precision. We could
+  // live with that on the whole, but it can push the boundary of a tile onto
+  // the one above it so lnglatToTileIJ(tileIJToLnglat(foo)) != foo. Adding
+  // this 1-part-per-billion fudge stabilized things; with this, no edge will
+  // ever dance across tiles. Each of the following equivalents to the code
+  // here or in tileIJToLnglat work, and none performed better.
+  //
+  // double lat_rad = Math.toRadians(lat);           // OSM version
+  // double tj2     = mapsize * (1 - Math.log( Math.tan(lat_rad)  + (1/Math.cos(lat_rad)) )/Math.PI) / 2.0;
+  // double sin_lat = Math.sin(lat * Math.PI / 180); // Bing version
+  // double tj3     = mapsize * (0.5 - Math.log((1 + sin_lat) / (1 - sin_lat)) / (4 * Math.PI));
+  // double lat2    = 180/Math.PI*Math.atan(Math.sinh(Math.PI * (1 - 2.0*tj/mapsize)));
+  //
+    
     public Mercator(){
       super(DEFAULT_MIN_LNG, DEFAULT_MIN_LAT, DEFAULT_MAX_LNG, DEFAULT_MAX_LAT, DEFAULT_GLOBE_RADIUS);
     }

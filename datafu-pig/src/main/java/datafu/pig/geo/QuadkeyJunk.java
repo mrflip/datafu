@@ -60,7 +60,7 @@
 //     if (zl_diff < 0) { throw new RuntimeException("Asked for children at higher zoom level than tile: tile is "+zl+"; requested "+child_zl); }
 //
 //     Quadtile[] result = [];
-//     long qk_base = quadkey << zl_diff;
+//     long qk_base = qmorton << zl_diff;
 //     for (offset = 0; offset < (1 << zl_diff); offset++) {
 //       result[i] = new Quadtile(qk_base | offset);
 //     }
@@ -93,7 +93,7 @@
 //
 //   public int getTileX() {
 //     if (tile_i == null) {
-//       int[] tile_ij = QuadkeyUtils.quadkeyToTileIJ(quadkey);
+//       int[] tile_ij = QuadtileUtils.qmortonToTileIJ(qmorton);
 //       this.tile_i = tile_ij[0];
 //       this.tile_j = tile_ij[0];
 //     }
@@ -158,19 +158,19 @@
 //       // # Bounding box coordinates
 //       // #
 //       //
-//       // # Convert a quadkey into a bounding box using adjacent tile
-//       // def quadkey_to_bbox(quadkey)
-//       //   tile_x, tile_y, zl = quadkey_to_tile_xy_zl(quadkey)
+//       // # Convert a qmorton into a bounding box using adjacent tile
+//       // def qmorton_to_bbox(qmorton)
+//       //   tile_x, tile_y, zl = qmorton_to_tile_xy_zl(qmorton)
 //       //   # bottom right of me is top left of my southeast neighbor
 //       //   left,  top = tile_xy_zl_to_lng_lat(tile_x,     tile_y,     zl)
 //       //   right, btm = tile_xy_zl_to_lng_lat(tile_x + 1, tile_y + 1, zl)
 //       //   [left, btm, right, top]
 //       // end
 //       //
-//       // # Retuns the smallest quadkey containing both of corners of the given bounding box
-//       // def quadkey_containing_bbox(left, btm, right, top)
-//       //   qk_tl = lng_lat_zl_to_quadkey(left,  top, 23)
-//       //   qk_2  = lng_lat_zl_to_quadkey(right, btm, 23)
+//       // # Retuns the smallest qmorton containing both of corners of the given bounding box
+//       // def qmorton_containing_bbox(left, btm, right, top)
+//       //   qk_tl = lng_lat_zl_to_qmorton(left,  top, 23)
+//       //   qk_2  = lng_lat_zl_to_qmorton(right, btm, 23)
 //       //   # the containing qk is the longest one that both agree on
 //       //   containing_key = ""
 //       //   qk_tl.chars.zip(qk_2.chars).each do |char_tl, char_2|
@@ -192,10 +192,10 @@
 //       // # Convert latitude in degrees to integer tile x,y coordinates at given
 //       // # zoom level.  Assigns points outside the tile coverage to "0000..."
 //       // # (north) and "33333..." (south) rather than raising an error.
-//       // def point_to_quadkey_withpoles(longitude, latitude)
+//       // def point_to_qmorton_withpoles(longitude, latitude)
 //       //   if    (MAX_LATITUDE ..  90.0).include?(latitude) then return ("0"*POINT_ZL)
 //       //   elsif (-90.0 .. MIN_LATITUDE).include?(latitude) then return ("3"*POINT_ZL) end
-//       //   lng_lat_zl_to_quadkey(longitude, latitude, POINT_ZL)
+//       //   lng_lat_zl_to_qmorton(longitude, latitude, POINT_ZL)
 //       // end
 //
 //

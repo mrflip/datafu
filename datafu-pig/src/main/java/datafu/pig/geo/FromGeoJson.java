@@ -37,7 +37,7 @@ public class FromGeoJson extends SimpleEvalFunc<String>
     try {
       OGCGeometry geom = OGCGeometry.fromGeoJson(geo_json);
       if (geom == null){
-        // LogUtils.Log_ArgumentsNull(LOG);
+        // GeoExceptions.Log_ArgumentsNull(LOG);
         return null;
       }
       //

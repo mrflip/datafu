@@ -31,7 +31,7 @@ import org.apache.commons.logging.LogFactory;
 /****************************************************************************
  *
  * Utilities for converting among different quadtile handle representations and
- * manipulaing quadkeys.
+ * efficiently manipulating their keys.
  *
  * Quadtile decomposition (or any of its fancier relatives like k-d trees) are
  * central to doing geospatial analysis using Big Data tools such as
@@ -42,11 +42,11 @@ import org.apache.commons.logging.LogFactory;
  * Tiles can be usefully referenced by any of the following:
  *
  * <ul>
- * <li><em>quadkey</em> -- long containing interleaved x/y bits of tile indices,
+ * <li><em>qmorton</em> -- long containing interleaved x/y bits of tile indices,
  *   aka the Morton number</li>
  *
  * <li><em>quadstr</em> -- String holding the base-4 representation of the
- *   quadkey. You may insert spaces (for readability), and may add trailing
+ *   Morton number. You may insert spaces (for readability), and may add trailing
  *   non-digits on the right (a handy trick to force parent tiles to sort ahead
  *   (* or #) or behind (~) their children.)</li>
  *
@@ -58,21 +58,10 @@ import org.apache.commons.logging.LogFactory;
  *
  * All references to tiles must come with a zoom level of detail ('zl') (apart
  * from quadstrs, whose zoom level is implied by the count of its digits). The
- * zoom level is permitted to range down to 31, implying a 62-bit quadkey and
- * four million trillion tiles. (Tileservers generally extend only to zl 23).
- * Results are undefined for zoom level 32.
- *
- * The mercator maptile i/j/zl scheme is used by all popular online tile servers
- * -- open streetmap, google maps, bing maps, stamen, leaflet, others -- to
- * serve map imagery. It relies on a mercator projection that makes serious
- * geographers cry, but as anyone who internets should recognize is
- * exceptionally useful and ubiquitous. This provides methods for converting
- * from geographic coordinates to maptile handles.
- *
- * You don't have to use the Mercator projection for generating quadkey handles,
- * and apart from those with "Mercator" in the name these methods apply to any
- * quadtree scheme. The default concrete Quadtree class (QuadTreeImpl) in this
- * library simply partitions longitude and latitude uniformly.
+ * zoom level is permitted to range down to 28, implying a 56-bit morton and
+ * 72,000 trillion tiles. (Tileservers generally extend only to zl 23, so this
+ * is plenty). Results are undefined for zoom levels greater than 28 -- we do
+ * no checking.
  *
  * For more on Quadtiles and Quadkeys, see:
  *
@@ -85,29 +74,16 @@ import org.apache.commons.logging.LogFactory;
  * <li><a href="http://www.radicalcartography.net/?projectionref">Display and Thematic Map Projection Reference</a></li>
  * </ul>
 */
-public final class QuadkeyUtils {
-  private static final Log LOG = LogFactory.getLog(QuadkeyUtils.class);
+public final class QuadtileUtils {
+  private static final Log LOG = LogFactory.getLog(QuadtileUtils.class);
 
   /**
    * 28 levels of detail means 72,000 trillion tiles, 1-inch earth resolution.
-   * It also lets us pack the left-shifted quadkey and zoom level into a long.
+   * It also lets us pack the left-shifted qmorton and zoom level into a long.
    */
   public static final int   MAX_ZOOM_LEVEL   = 28;
 
-  // The arctan/log/tan/sinh business gives slight loss of precision. We could
-  // live with that on the whole, but it can push the boundary of a tile onto
-  // the one above it so lnglatToTileIJ(tileIJToLnglat(foo)) != foo. Adding
-  // this 1-part-per-billion fudge stabilized things; with this, no edge will
-  // ever dance across tiles. Each of the following equivalents to the code
-  // here or in tileIJToLnglat work, and none performed better.
-  //
-  // double lat_rad = Math.toRadians(lat);           // OSM version
-  // double tj2     = mapsize * (1 - Math.log( Math.tan(lat_rad)  + (1/Math.cos(lat_rad)) )/Math.PI) / 2.0;
-  // double sin_lat = Math.sin(lat * Math.PI / 180); // Bing version
-  // double tj3     = mapsize * (0.5 - Math.log((1 + sin_lat) / (1 - sin_lat)) / (4 * Math.PI));
-  // double lat2    = 180/Math.PI*Math.atan(Math.sinh(Math.PI * (1 - 2.0*tj/mapsize)));
-  //
-  public static final double EDGE_FUDGE      = 1e-10;
+  // public static final double EDGE_FUDGE      = 1e-10;
 
   /****************************************************************************
    *
@@ -136,7 +112,7 @@ public final class QuadkeyUtils {
    *
    * @param ti      I index of tile
    * @param tj      J index of tile
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
    * @return        { longitude, latitude }
    */
   public static double[] tileIJToGridXY(int ti, int tj, int zl) {
@@ -149,45 +125,45 @@ public final class QuadkeyUtils {
 
   /****************************************************************************
    *
-   * Quadkey Methods
+   * Qmorton Methods
    *
    */
 
   /**
-   * Quadkey handle (Morton number) of tile with given tile i/j indices.
+   * Morton handle (z-order index) of tile with given tile i/j indices.
    */
-  public static long tileIJToQuadkey(int ti, int tj) {
+  public static long tileIJToQmorton(int ti, int tj) {
     // convert it 8 bits a piece: x evens, y odds. ">>>" means logical bit shift.
-    long qk =
-      MORTON_LUT[ ti         & 0xff]       | MORTON_LUT[ tj         & 0xff] << 1  |
-      MORTON_LUT[(ti >>>  8) & 0xff] << 16 | MORTON_LUT[(tj >>>  8) & 0xff] << 17 |
-      MORTON_LUT[(ti >>> 16) & 0xff] << 32 | MORTON_LUT[(tj >>> 16) & 0xff] << 33 |
-      MORTON_LUT[(ti >>> 24) & 0xff] << 48 | MORTON_LUT[(tj >>> 24) & 0xff] << 49 ;
-    return qk;
+    long qm =
+      QMORTON_LUT[ ti         & 0xff]       | QMORTON_LUT[ tj         & 0xff] << 1  |
+      QMORTON_LUT[(ti >>>  8) & 0xff] << 16 | QMORTON_LUT[(tj >>>  8) & 0xff] << 17 |
+      QMORTON_LUT[(ti >>> 16) & 0xff] << 32 | QMORTON_LUT[(tj >>> 16) & 0xff] << 33 |
+      QMORTON_LUT[(ti >>> 24) & 0xff] << 48 | QMORTON_LUT[(tj >>> 24) & 0xff] << 49 ;
+    return qm;
   }
 
   /**
-   * Tile I/J indices of a tile given by its quadkey
+   * Tile I/J indices of a tile given by its qmorton
    *
-   * @param  quadkey handle of a tile
+   * @param  qmorton handle of a tile
    * @return { tile_i, tile_j }
    */
-  public static int[] quadkeyToTileIJ(long qk) {
-    return new int[] { uninterleaveBits(qk), uninterleaveBits(qk >>> 1) };
+  public static int[] qmortonToTileIJ(long qm) {
+    return new int[] { uninterleaveBits(qm), uninterleaveBits(qm >>> 1) };
   }
   /**
-   * Tile I/J indices and zoom level of a tile given by its quadkey and zoom level.
+   * Tile I/J indices and zoom level of a tile given by its qmorton and zoom level.
    * (This is provided as a convenience; the zoom level passes through).
    *
-   * @param  quadkey handle of a tile
+   * @param  qmorton handle of a tile
    * @return { tile_i, tile_j, zoom level }
    */
-  public static int[] quadkeyToTileIJ(long qk, int zl) {
-    return new int[] { uninterleaveBits(qk), uninterleaveBits(qk >>> 1), zl };
+  public static int[] qmortonToTileIJ(long qm, int zl) {
+    return new int[] { uninterleaveBits(qm), uninterleaveBits(qm >>> 1), zl };
   }
 
   /**
-   * Zoom quadkey out (coarser zl) by the given number of levels. A negative difference
+   * Zoom qmorton out (coarser zl) by the given number of levels. A negative difference
    * will zoom in by choosing the top left child tile each time.
    *
    * Using tile with base-4 string handle 012311, for example:
@@ -196,127 +172,163 @@ public final class QuadkeyUtils {
    *     zoom by  2  //  0123
    *     zoom by -3  //  01231100
    *
-   * @param quadkey
+   * @param qmorton
    * @param zldiff  Number of zoom levels to increase. Must not be negative
-   * @return quadkey of the specified parent, or the same quadkey for zldiff=0
+   * @return qmorton of the specified parent, or the same qmorton for zldiff=0
    */
-  public static long quadkeyZoomBy(long quadkey, int zldiff) {
+  public static long qmortonZoomBy(long qmorton, int zldiff) {
     if (zldiff >= 0) { 
-      return quadkey >>> 2*zldiff;
+      return qmorton >>> 2*zldiff;
     } else {
-      return quadkey << (-2*zldiff);
+      return qmorton << (-2*zldiff);
     }
   }
 
+  public static long QUADORD_ZL_MASK = 0x000000000000001fL; // bits 5..1
+  public static long QUADORD_QM_MASK = 0x3fffffffffffffc0L; // bits 62..7 ; bits 64, 63 and 6 always 0
+  
   /**
    *
    * Returns a key that naturally sorts in Z-order even across zoom levels -- a
    * parent (containing) tile always sorts in front of all its descendants, but
    * after its predecessor and all its predecessor's descendants. It does so by
-   * left-aligning the quadkey into bits 62..7, and the zoom level into bits
+   * left-aligning the qmorton into bits 62..7, and the zoom level into bits
    * 5..1, leaving bits 64, 63 and 6 blank.
    *
-   * * The zl-3 quadtile # 103 has quadordKey() 103_0000_0000_0..._0003.
-   * * Its zl-8 descendant 10310312 has quadord 103_1031_2000_0..._0020.
-   * * Her direct nw child 103103120 sorts using 103_1031_2000_0..._0021 -- same
+   * * The zl-3 quadtile # 123 has quadordKey() 123_0000_0000_0..._0003.
+   * * Its zl-8 descendant 12310312 has quadord 123_1031_2000_0..._0020.
+   * * Her direct nw child 123103120 sorts using 123_1031_2000_0..._0021 -- same
    *   position bits, but following its parent due to higher zoom level.   
-   * * Descendant 1031_0312_0123_0123_0123_0123, at zl-28 (highest allowed),
-   *   has quadord key 103_1031_2012_3012_3012_3012_3130.
+   * * Descendant 1231_0312_0123_0123_0123_0123, at zl-28 (highest allowed),
+   *   has quadord key 123_1031_2012_3012_3012_3012_3130.
    * 
    * In this scheme bits 64, 63, and 6 will always be zero. The MSB (sign bit)
    * is reserved to pull the UTF-8 trick: set it to indicate special handling.
    */
-  public static long quadordQuadkey(long qk, int zl) {
-    int shift = 2*(31 - zl);
-    return (qk << shift | zl);
+  public static long qmortonZlToQuadord(long qm, int zl) {
+    int shift = 62 - 2*zl;
+    return (qm << shift) | zl;
   }
   
   /**
-   * Turns a quadord key into a quadkey
-   * @see quadordQuadkey
+   * Qmorton of given quadord key
+   * @see qmortonZlToQuadord
    */
-  public static long[] quadkeyZlFromQuadord(long quadord) {
-    long zl = quadord & 0x1fL;
-    return new long[] { quadord >>> zl, zl };
+  public static long quadordToQmorton(long quadord) {
+    int zl = (int)(quadord & QUADORD_ZL_MASK);
+    return quadord >>> (2*zl + 6);
+  }
+  
+  /**
+   * Zoom level of given quadord key
+   * @see qmortonZlToQuadord
+   */
+  public static int quadordToZl(long quadord) {
+    return (int)(quadord & QUADORD_ZL_MASK);
   }
 
-  public static long QUADORD_ZL_MASK = 0x000000000000001FL;
-  public static long QUADORD_QK_MASK = 0x3fffffffffffffc0L; // "03333333333333333333333333333000"
-  public static boolean quadordAContainsB(long sk_a, long sk_b) {
-    int zl_a = (int)(sk_a & QUADORD_ZL_MASK), zl_b = (int)(sk_b & QUADORD_ZL_MASK);
+  /**
+   * True if first quadord key refers to a tile that is the same or contains the
+   * other. Quadord 123_0000...003 (tile 27 @zl-3) contains 123_0000...004 and
+   * 123_3000...004 (tiles 108 and 111 @zl-4) because they have the same prefix
+   * '123' at the coarser zoom level of 3. It does not contain 120_0000...002
+   * because that has a finer zoom level, and it does not contain 121_0000...003
+   * because that has a different prefix (meaning they do not overlap).
+   */
+  public static boolean quadordAContainsB(long qo_a, long qo_b) {
+    if (qo_a == qo_b) { return true; }
+    int zl_a = (int)(qo_a & QUADORD_ZL_MASK), zl_b = (int)(qo_b & QUADORD_ZL_MASK);
     // a can't contain if b is at coarser zoom level
     if (zl_b < zl_a){ return false; }
-    long qk_b_prefix = sk_b & (QUADORD_QK_MASK << (2*(zl_b - zl_a)));
-    return (qk_b_prefix == (sk_a & QUADORD_QK_MASK));
+    long qm_b_prefix = qo_b & (QUADORD_QM_MASK << (2*(zl_b - zl_a)));
+    return (qm_b_prefix == (qo_a & QUADORD_QM_MASK));
   }
 
+    // int zl_o = other.zoomlvl();
+    // // can't contain if it is at coarser zoom level
+    // if (zl_o < zl){ return false; }
+    // // contain if its rightshifted prefix matches mine
+    // long qm_o_prefix = other.qmorton() >>> (2*(zl_o-zl));
+    // return (qm_o_prefix == qm);
+
   /**
-   * Quadkey of the ancestor containting that tile at the given zoom level
+   * Qmorton of the ancestor containting that tile at the given zoom level
    *
-   * @param quadkey
+   * @param qmorton
    * @param zl
-   * @param zl_anc    Zoom level of detail for the ancestor. Must not be finer than the given quadkey's zl
-   * @return quadkey of the specified tile
+   * @param zl_anc    Zoom level of detail for the ancestor. Must not be finer than the given qmorton's zl
+   * @return qmorton of the specified tile
    */
-  public static long quadkeyAncestor(long quadkey, int zl, int zl_anc) {
-    return quadkeyZoomBy(quadkey, zl_anc - zl);
+  public static long qmortonAncestor(long qmorton, int zl, int zl_anc) {
+    return qmortonZoomBy(qmorton, zl_anc - zl);
   }
 
-  /** Quadkeys of each chiild tile at one finer zoom level */
-  public static Long[] quadkeyChildren(long qk) {
-    Long cqk = qk << 2;
-    return new Long[] { cqk|0, cqk|1, cqk|2, cqk|3 };
+  public static long I_BITS = 0x5555555555555555L;
+  public static long J_BITS = 0xAAAAAAAAAAAAAAAAL;
+
+  // See http://bitmath.blogspot.com/2012/11/tesseral-arithmetic.html
+  // 
+  
+  /** Qmorton directly left of the given qmorton */
+  public static long qmortonNeighborWest(long qm) {
+    long   nbr_ibits = ((qm & I_BITS) - 1) & I_BITS;
+    return nbr_ibits |  (qm & J_BITS);
   }
 
-  /** Quadkey directly left of the given quadkey */
-  public static long quadkeyNeighborLeft(long qk) {
-    long qk_id = (qk    & 0x5555555555555555L) - 1;
-    return       (qk_id & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL);
+  /** Qmorton to the direct right of the given qmorton */
+  public static long qmortonNeighborEast(long qm) {
+    long   nbr_ibits = ((qm | J_BITS) + 1) & I_BITS;
+    return nbr_ibits |  (qm & J_BITS);
   }
 
-  /** Quadkey directly up of the given quadkey */
-  public static long quadkeyNeighborUp(long qk) {
-    long qk_jd = (qk    & 0xAAAAAAAAAAAAAAAAL) - 2;
-    return       (qk_jd & 0xAAAAAAAAAAAAAAAAL) | (qk & 0x5555555555555555L);
+  /** Qmorton directly up of the given qmorton */
+  public static long qmortonNeighborNorth(long qm) {
+    long   nbr_jbits = ((qm & J_BITS) - 2) & J_BITS;
+    return nbr_jbits |  (qm & I_BITS);
   }
 
-  /** Quadkey to the direct right of the given quadkey */
-  public static long quadkeyNeighborRight(long qk) {
-    long qk_iu = (qk    | 0xAAAAAAAAAAAAAAAAL) + 1;
-    return       (qk_iu & 0x5555555555555555L) | (qk & 0xAAAAAAAAAAAAAAAAL);
+  /** Qmorton to the direct down of the given qmorton */
+  public static long qmortonNeighborSouth(long qm) {
+    long   nbr_jbits = ((qm | I_BITS) + 2) & J_BITS;
+    return nbr_jbits |  (qm & I_BITS);
   }
 
-  /** Quadkey to the direct down of the given quadkey */
-  public static long quadkeyNeighborDown(long qk) {
-    long qk_ju = (qk    | 0x5555555555555555L) + 2;
-    return       (qk_ju & 0xAAAAAAAAAAAAAAAAL) | (qk & 0x5555555555555555L);
+  /** Qmorton to the direct south-east (down-right) of the given qmorton */
+  public static long qmortonNeighborSE(long qm) {
+    // See http://bitmath.blogspot.com/2012/11/tesseral-arithmetic.html
+    return (((qm | J_BITS) + 1) & I_BITS) | (((qm | I_BITS) + 2) & J_BITS);
   }
 
-
+  /** Qmortons of each chiild tile at one finer zoom level */
+  public static long[] qmortonChildren(long qm) {
+    long cqm = qm << 2;
+    return new long[] { cqm|0, cqm|1, cqm|2, cqm|3 };
+  }
+    
   /**
-   * Given a [tile_i, tile_j] pair, returns a 9-element array of [tile_i,
-   * tile_j] pairs in the following order, right to left and up to down:
+   * Given a tile morton key, returns a 9-element array of keys in the following
+   * order, right to left and up to down:
    *
    *     i-1,j-1   i,j-1    i+1,j-1
    *     i-1,j     i,j      i+1,j
    *     i-1,j+1   i,j+1    i+1,j+1
    *
-   * If a tile would be off the map, a null value appears in place of the pair.
-   * See neighborsList if you only want the neighbors that exist.
+   * Wherever a tile would be off the map, a null value appears in place of the
+   * pair.  See neighborsList if you only want the neighbors that exist.
    *
    */
-  public static Long[] quadkeyNeighborhood(long qk, int zl) {
-    long max_qk = maxQuadkey(zl);
-    long lf     = quadkeyNeighborLeft(qk);
-    long rt     = quadkeyNeighborRight(qk);
+  public static Long[] qmortonNeighborhood(long qm, int zl) {
+    long max_qm = maxQmorton(zl);
+    long lf     = qmortonNeighborWest(qm);
+    long rt     = qmortonNeighborEast(qm);
 
     Long[] nbrs = {
-      quadkeyNeighborUp(lf),   quadkeyNeighborUp(qk),   quadkeyNeighborUp(rt),
-      lf,                      qk,                      rt,
-      quadkeyNeighborDown(lf), quadkeyNeighborDown(qk), quadkeyNeighborDown(rt)
+      qmortonNeighborNorth(lf), qmortonNeighborNorth(qm), qmortonNeighborNorth(rt),
+      lf,                       qm,                       rt,
+      qmortonNeighborSouth(lf), qmortonNeighborSouth(qm), qmortonNeighborSouth(rt)
     };
     for (int idx = 0; idx < 9; idx++) {
-      if (nbrs[idx] < 0 || nbrs[idx] > max_qk) {
+      if (nbrs[idx] < 0 || nbrs[idx] > max_qm) {
         nbrs[idx] = null;
       }
     }
@@ -324,19 +336,19 @@ public final class QuadkeyUtils {
   }
 
   /**
-   * Returns a list, in arbitrary order, of the quadkeys for the given tile and
+   * Returns a list, in arbitrary order, of the qmortons for the given tile and
    * all its eight neighbors.
    *
-   * Most tiles have 9 neighbors.  However, quadkeys for tiles off the map are
+   * Most tiles have 9 neighbors.  However, qmortons for tiles off the map are
    * not in the list; so a tjpical tile on the anti-meridian has only 6
    * neighbors, and there's four lonely spots in the artic and antarctic with
    * only four neighbors.
    *
    */
-  public static List<Long> quadkeyNeighborhoodList(long qk, int zl) {
+  public static List<Long> qmortonNeighborhoodList(long qm, int zl) {
     List<Long> result = new ArrayList<Long>(9);
 
-    Long[] nbrs = quadkeyNeighborhood(qk, zl);
+    Long[] nbrs = qmortonNeighborhood(qm, zl);
     for (int idx = 0; idx < 9; idx++) {
       if (nbrs[idx] != null) {
         result.add(nbrs[idx]);
@@ -346,42 +358,42 @@ public final class QuadkeyUtils {
   }
 
   /**
-   * Quadkey of the smallest parent tile containing the given tiles. Both
-   * quadkeys must refer to tiles at the same zoom level or the result is
+   * Qmorton of the smallest parent tile containing the given tiles. Both
+   * qmortons must refer to tiles at the same zoom level or the result is
    * meaningless.
    *
-   * @param qk_1    Quadkey handle
-   * @param qk_2    Quadkey handle
-   * @return        quadkey of smallest tile (highest ZL) containing both,
+   * @param qm_1    Morton handle
+   * @param qm_2    Morton handle
+   * @return        morton of smallest tile (highest zoom level) containing both
    */
-  public static long[] smallestContaining(long qk_1, long qk_2, int zl) throws RuntimeException {
+  public static long[] smallestContaining(long qm_1, long qm_2, int zl) throws RuntimeException {
     for (; zl >= 0;  zl--) {
-      if (qk_1 == qk_2) {
-        long[] qk_zl = { qk_1, zl };
-        return qk_zl;
+      if (qm_1 == qm_2) {
+        long[] qm_zl = { qm_1, zl };
+        return qm_zl;
       }
-      qk_1 >>>= 2;
-      qk_2 >>>= 2;
+      qm_1 >>>= 2;
+      qm_2 >>>= 2;
     }
-    throw new RuntimeException("Quadkeys out of range: "+qk_1+" or "+qk_2+" have more bits than I can shift.");
+    throw new RuntimeException("Quadtile Morton indexes out of range: "+qm_1+" or "+qm_2+" have more bits than I can shift.");
   }
 
   /**
-   * Quadkey of the smallest parent tile containing the tiles for given quadstr
+   * Morton of the smallest parent tile containing the tiles for given quadstr
    * string handles. Throws an error if tiles are not at the same zoom level
    * (result is otherwise meaningless.)
    *
    * @param quadstr_1   Quadstr string handle
    * @param quadstr_2   Quadstr string handle
-   * @return            quadstr of smallest tile (highest ZL) containing both
+   * @return            quadstr of smallest tile (highest zoom level) containing both
    */
   public static String smallestContaining(String quadstr_1, String quadstr_2) throws RuntimeException {
     int  zl_1 = quadstrToZl(quadstr_1),      zl_2 = quadstrToZl(quadstr_2);
-    long qk_1 = quadstrToQuadkey(quadstr_1), qk_2 = quadstrToQuadkey(quadstr_2);
+    long qm_1 = quadstrToQmorton(quadstr_1), qm_2 = quadstrToQmorton(quadstr_2);
     if (zl_1 != zl_2) { throw new IllegalArgumentException("Tiles must be at same zoom level for the result to make sense"); }
     //
-    long[] qk_zl = smallestContaining(qk_1, qk_2, zl_1);
-    String res = quadkeyToQuadstr(qk_zl[0], (int)qk_zl[1]);
+    long[] qm_zl = smallestContaining(qm_1, qm_2, zl_1);
+    String res = qmortonToQuadstr(qm_zl[0], (int)qm_zl[1]);
     return res;
   }
 
@@ -404,49 +416,49 @@ public final class QuadkeyUtils {
    */
 
   /**
-   * Quadstr string handle (base-4 representation of the quadkey) for the given
-   * quadkey and zoom level
+   * Quadstr string handle (base-4 representation of the qmorton) for the given
+   * qmorton and zoom level
    */
-  public static String quadkeyToQuadstr(long qk, int zl) {
-    String qk_base_4 = "00000000000000000000000000000000".concat(Long.toString(qk, 4));
-    int len = qk_base_4.length();
-    return qk_base_4.substring(len - zl, len);
+  public static String qmortonToQuadstr(long qm, int zl) {
+    String qm_base_4 = "00000000000000000000000000000000".concat(Long.toString(qm, 4));
+    int len = qm_base_4.length();
+    return qm_base_4.substring(len - zl, len);
   }
 
 
   // /**
-  //  * Quadstr string handle (base-4 representation of the quadkey) for the given
-  //  * quadkey and zoom level
+  //  * Quadstr string handle (base-4 representation of the qmorton) for the given
+  //  * qmorton and zoom level
   //  */
-  // public static String quadkeyToPaddedQuadstr(long qk, int zl, int target_zl) {
+  // public static String qmortonToPaddedQuadstr(long qm, int zl, int target_zl) {
   //   String suffix = "";
   //   if (target_zl > zl) {
-  //   //   qk <<= 2*(target_zl - zl);
+  //   //   qm <<= 2*(target_zl - zl);
   //     suffix = "********************************".substring(0, target_zl - zl);
   //   }
-  //   // String qk_base_4 = Long.toString(qk, 4).concat(suffix);
-  //   // return qk_base_4; // .substring(0, target_zl);
-  //   return quadkeyToQuadstr(qk, zl).concat(suffix).substring(0, target_zl);
+  //   // String qm_base_4 = Long.toString(qm, 4).concat(suffix);
+  //   // return qm_base_4; // .substring(0, target_zl);
+  //   return qmortonToQuadstr(qm, zl).concat(suffix).substring(0, target_zl);
   // }
 
   /**
-   * Quadstr string handle (base-4 representation of the quadkey) for the given
+   * Quadstr string handle (base-4 representation of the qmorton) for the given
    * tile i/j indices and zoom level
    */
   public static String tileIJToQuadstr(int ti, int tj, int zl) {
-    long quadkey = tileIJToQuadkey(ti, tj);
-    return quadkeyToQuadstr(quadkey, zl);
+    long qmorton = tileIJToQmorton(ti, tj);
+    return qmortonToQuadstr(qmorton, zl);
   }
 
   /**
-   * Convert base-4 representation of a quadkey to quadkey value.  Trailing
+   * Convert base-4 representation of a qmorton to qmorton value.  Trailing
    * non-digits and spaces are removed. (Padding out with trailing characters is
    * a handy trick to force supertiles to sort ahead (* or #) or behind (~)
    * their children, and spaces help readability.)
    * @param   quadstr
-   * @return  quadkey
+   * @return  qmorton
    */
-  public static long quadstrToQuadkey(String quadstr) {
+  public static long quadstrToQmorton(String quadstr) {
     quadstr = quadstr.replaceAll("( |[^\\d]+$)", "");
     if (quadstr.equals("")) { return 0L; }
     return Long.parseLong(quadstr, 4);
@@ -467,7 +479,7 @@ public final class QuadkeyUtils {
    * @return  { tile_i, tile_j, zoomlvl }
    */
   public static int[] quadstrToTileIJ(String quadstr) {
-    return quadkeyToTileIJ( quadstrToQuadkey(quadstr), quadstrToZl(quadstr) );
+    return qmortonToTileIJ( quadstrToQmorton(quadstr), quadstrToZl(quadstr) );
   }
 
   /****************************************************************************
@@ -482,12 +494,12 @@ public final class QuadkeyUtils {
    *
    * @param lng     Longitude of the point, in WGS-84 degrees
    * @param lat     Latitude of the point, in WGS-84 degrees
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
    * @return        { tile_i, tile_j }
    */
   public static int[] worldToTileIJ(double lng, double lat, int zl, Projection proj) {
     double[] grid_xy = proj.lngLatToGridXY(lng, lat);
-    grid_xy[1] += (EDGE_FUDGE/(1<<zl));  // See note above EDGE_FUDGE
+    // grid_xy[1] += (EDGE_FUDGE/(1<<zl));  // See note above EDGE_FUDGE
     return gridXYToTileIJ(grid_xy[0], grid_xy[1], zl);
   }
 
@@ -502,7 +514,7 @@ public final class QuadkeyUtils {
    *
    * @param ti      I index of tile
    * @param tj      J index of tile
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
    * @return        { longitude, latitude }
    */
   public static double[] tileIJToWorld(int ti, int tj, int zl, Projection proj) {
@@ -512,35 +524,82 @@ public final class QuadkeyUtils {
 
 
   /**
-   * Quadkey handle of the tile containing that point at the given zoom level in
+   * Qmorton handle of the tile containing that point at the given zoom level in
    * the popular tileserver Mercator projection.
    *
    * @param lng     Longitude of the point, in WGS-84 degrees
    * @param lat     Latitude of the point, in WGS-84 degrees
    * @param zl      zoom level, from 1 (lowest detail) to 30 (highest detail)
    * @param proj    Projection to convert between world and grid coordinates
-   * @return        Quadkey handle of the tile
+   * @return        Qmorton handle of the tile
    */
-  public static long worldToQuadkey(double lng, double lat, final int zl, Projection proj) {
+  public static long worldToQmorton(double lng, double lat, final int zl, Projection proj) {
     int[] tile_ij = worldToTileIJ(lng, lat, zl, proj);
-    return tileIJToQuadkey(tile_ij[0], tile_ij[1]);
-  }
-
-  public static long worldToQuadkey(double lng, double lat, Projection proj) {
-    return worldToQuadkey(lng, lat, MAX_ZOOM_LEVEL, proj);
+    return tileIJToQmorton(tile_ij[0], tile_ij[1]);
   }
 
   /**
    * World coordinates of the tile's top left corner
    *
-   * @param quadkey quadkey handle of the tile
+   * @param qmorton qmorton handle of the tile
    * @param zl      zoom level, from 1 (lowest detail) to 30 (highest detail)
    * @param proj    Projection to convert between world and grid coordinates
    * @return        { longitude, latitude }
    */
-  public static double[] quadkeyToWorld(long quadkey, int zl, Projection proj) {
-    int[] tile_ij = quadkeyToTileIJ(quadkey);
+  public static double[] qmortonToWorld(long qmorton, int zl, Projection proj) {
+    int[] tile_ij = qmortonToTileIJ(qmorton);
     return tileIJToWorld(tile_ij[0], tile_ij[1], zl, proj);
+  }
+
+  public static long[] wsenToQmortonZl(double west, double south, double east, double north, Projection proj) {
+    long qm_nw = worldToQmorton(west, north, MAX_ZOOM_LEVEL, proj);
+    long qm_se = worldToQmorton(east, south, MAX_ZOOM_LEVEL, proj);
+    return smallestContaining(qm_nw, qm_se, MAX_ZOOM_LEVEL);
+  }  
+
+  /**
+   * WGS84 coordinates for tile's west, south, east, and north extents in the
+   * popular tileserver Mercator projection. That is:
+   *
+   *   minimum longitude, minimum latitude, maximum longitude, maximum latitude
+   *
+   * @param qmorton Morton key of tile
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
+   * @return        [west, south, east, north]
+   */
+  public static double[] qmortonToWorldWSEN(long qmorton, int zl, Projection proj) {
+    int[] tile_ij = qmortonToTileIJ(qmorton);
+    return tileIJToWorldWSEN(tile_ij[0], tile_ij[1], zl, proj);
+  }
+
+  /**
+   * WGS84 coordinates for tile's west, south, east, and north extents in the
+   * popular tileserver Mercator projection. That is:
+   *
+   *   minimum longitude, minimum latitude, maximum longitude, maximum latitude
+   *
+   * @param ti      I index of tile
+   * @param tj      J index of tile
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
+   * @return        [west, south, east, north]
+   */
+  public static double[] tileIJToWorldWSEN(int ti, int tj, int zl, Projection proj) {
+    double[] nw_corner = tileIJToWorld(ti,   tj,   zl, proj);
+    double[] se_corner = tileIJToWorld(ti+1, tj+1, zl, proj);
+    //
+    // [west south east north]​ -- [min_x, min_y, max_x, max_y]
+    return new double[] { nw_corner[0], se_corner[1], se_corner[0], nw_corner[1] };
+  }
+
+  /**
+   * Coordinates of the center of the tile -- useful for finding the child envelopes in one go.
+   */
+  public static double[] qmortonToTileCenter(long qmorton, int zl, Projection proj) {
+    // pop down one zoom level
+    qmorton <<= 2; zl += 1;
+    // pop over to the right and down, get coordinates
+    int[] tile_ij = qmortonToTileIJ(qmorton);
+    return tileIJToWorld(tile_ij[0] + 1, tile_ij[1] + 1, zl, proj);
   }
 
   /**
@@ -550,7 +609,7 @@ public final class QuadkeyUtils {
    * @param lat     Latitude of the point, in degrees
    * @param zl      Zoom level, from 1 (lowest detail) to 30 (highest detail)
    * @param proj    Projection to convert between world and grid coordinates
-   * @return String holding base-4 representation of quadkey
+   * @return String holding base-4 representation of qmorton
    */
   public static String worldToQuadstr(double lng, double lat, final int zl, Projection proj)
   {
@@ -570,31 +629,6 @@ public final class QuadkeyUtils {
     return tileIJToWorld(tile_ij_zl[0], tile_ij_zl[1], tile_ij_zl[2], proj);
   }
 
-  /**
-   * WGS84 coordinates for tile's west, south, east, and north extents in the
-   * popular tileserver Mercator projection. That is:
-   *
-   *   minimum longitude, minimum latitude, maximum longitude, maximum latitude
-   *
-   * @param ti      I index of tile
-   * @param tj      J index of tile
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        [west, south, east, north]
-   */
-  public static double[] tileIJToWorldWSEN(int ti, int tj, int zl, Projection proj) {
-    int max_idx  = maxTileIdx(zl);
-    if (ti > max_idx || tj > max_idx){ return null; }
-    double[] lf_up = tileIJToWorld(ti,   tj,   zl, proj);
-    double[] rt_dn = tileIJToWorld(ti+1, tj+1, zl, proj);
-
-    // [left, bottom, right, top]​ -- [min_x, min_y, max_x, max_y]
-    return new double[] { lf_up[0],
-                          rt_dn[1] , // +EDGE_FUDGE,
-                          rt_dn[0] , // -EDGE_FUDGE,
-                          lf_up[1] };
-  }
-
-
   /****************************************************************************
    *
    * Helpers
@@ -606,7 +640,7 @@ public final class QuadkeyUtils {
    * that is, the number of tiles across and down. For example, at zoom level
    * 3 there are 8 tiles across and 8 down, 64 total
    *
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
    * @return        Count of tiles in width or height
    */
   public static int mapTileSize(int zl) {
@@ -616,7 +650,7 @@ public final class QuadkeyUtils {
   /**
    * Highest tile_i or tile_j index at given zoom level (rightmost / bottomest)
    *
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
    * @return        The map width and height in tiles
    */
   public static int maxTileIdx(int zl) {
@@ -624,24 +658,24 @@ public final class QuadkeyUtils {
   }
 
   /**
-   * Index of highest quadkey value for given zoom level (right bottom tile)
+   * Index of highest qmorton value for given zoom level (right bottom tile)
    *
-   * @param zl      zoom level, from 1 (lowest detail) to 31 (highest detail)
-   * @return        Highest quadkey value
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
+   * @return        Highest qmorton value
    */
-  public static long maxQuadkey(int zl) {
+  public static long maxQmorton(int zl) {
     return (0x3FFFFFFFFFFFFFFFL >>> (62 - (zl*2)));
   }
 
   /**
    *
    * Lookup table for converting a byte's worth of tile indices to the
-   * corresponding quadkey bits. To convert J indices, shift the result left by
+   * corresponding qmorton bits. To convert J indices, shift the result left by
    * one; to convert I indices use as-is. Thanks Sean Eron Anderson
    * (https://graphics.stanford.edu/~seander/bithacks.html#InterleaveTableLookup)
    * and Harold of bitmath (http://bitmath.blogspot.com/2012_11_01_archive.html)
    */
-  private static final long[] MORTON_LUT = {
+  private static final long[] QMORTON_LUT = {
     0x0000L,0x0001L,0x0004L,0x0005L,0x0010L,0x0011L,0x0014L,0x0015L, 0x0040L,0x0041L,0x0044L,0x0045L,0x0050L,0x0051L,0x0054L,0x0055L,
     0x0100L,0x0101L,0x0104L,0x0105L,0x0110L,0x0111L,0x0114L,0x0115L, 0x0140L,0x0141L,0x0144L,0x0145L,0x0150L,0x0151L,0x0154L,0x0155L,
     0x0400L,0x0401L,0x0404L,0x0405L,0x0410L,0x0411L,0x0414L,0x0415L, 0x0440L,0x0441L,0x0444L,0x0445L,0x0450L,0x0451L,0x0454L,0x0455L,
@@ -662,7 +696,7 @@ public final class QuadkeyUtils {
 
   /**
    * I index (i.e. the even (lsb, lsb+2, ...) bits) of the given number.
-   * To find the J index, supply the quadkey shifted right by one bit.
+   * To find the J index, supply the qmorton shifted right by one bit.
    */
   private static int uninterleaveBits(long num) {
     num =  num                & 0x5555555555555555L;
