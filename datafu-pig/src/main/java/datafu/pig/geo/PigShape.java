@@ -42,11 +42,11 @@ public class PigShape extends PigGeometry {
    * and American Samoa sure, but also Russia and Alaska -- will end up at zoom level
    * zero. Yikes.
    */
-  public PigShape(Geometry geometry, Projection projection) {
+  public PigShape(OGCGeometry geometry, Projection projection) {
     this.proj    = projection;
     this.geom    = geometry;
     this.env     = new Envelope2D();
-    geom.queryEnvelope2D(env);
+    geom.getEsriGeometry().queryEnvelope2D(env);
     //
     long[] qk_zl = QuadtileUtils.wsenToQmortonZl(env.xmin, env.ymin, env.xmax, env.ymax, proj);
     //
@@ -55,5 +55,9 @@ public class PigShape extends PigGeometry {
     this.quadord = QuadtileUtils.qmortonZlToQuadord(qk, zl);
     //
     // GeometryUtils.dump("%d %d %s %s %d %d | %s | %s", qk_lfup, qk_rtdn, QuadtileUtils.qmortonToQuadstr(qk_lfup, zoomlvl), QuadtileUtils.qmortonToQuadstr(qk_rtdn, zoomlvl), qk_zl[0], qk_zl[1], quadtile, geom);
+  }
+
+  public PigShape(Geometry es_geom, Projection projection) {
+    this(OGCGeometry.createFromEsriGeometry(es_geom, null), projection);
   }
 }

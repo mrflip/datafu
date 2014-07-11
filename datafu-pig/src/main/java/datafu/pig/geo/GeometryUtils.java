@@ -100,7 +100,7 @@ public final class GeometryUtils {
     geom.queryEnvelope2D(env);
     return env;
   }
-  
+
   /**
    * A snippet of the payload that can be dumped to the console or a backtrace.
    *

@@ -310,7 +310,7 @@ abstract public class Projection
   // double tj3     = mapsize * (0.5 - Math.log((1 + sin_lat) / (1 - sin_lat)) / (4 * Math.PI));
   // double lat2    = 180/Math.PI*Math.atan(Math.sinh(Math.PI * (1 - 2.0*tj/mapsize)));
   //
-    
+
     public Mercator(){
       super(DEFAULT_MIN_LNG, DEFAULT_MIN_LAT, DEFAULT_MAX_LNG, DEFAULT_MAX_LAT, DEFAULT_GLOBE_RADIUS);
     }

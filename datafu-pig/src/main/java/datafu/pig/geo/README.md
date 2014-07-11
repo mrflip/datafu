@@ -175,7 +175,7 @@ Bold == works; TODO == soon; strikethrough == later
 
 * A spatial partitioning and ordering mechanism should be first class and pig should be built around it.
   - that _doesn't_ mean you're tied to using the simple quadtile scheme. Anything that traces an order through space that we can use to partition nearby objects works.
-  - (partition prefix, zl (height), secondary sort, 
+  - (partition prefix, zl (height), secondary sort,
 
 ### Geometry Type
 
@@ -187,7 +187,7 @@ Bold == works; TODO == soon; strikethrough == later
 * means to serialize
   - quadord, envelope (for sorting)
   - magic word wtih bits that say it's a geometry, the version number, and the subtype (point..multiline, tile, envelope)
-  - the geometry object, efficiently serialized. Unless WKB is widly inefficient either to pack/unpack or in space consumed, it seems like a reasonable choice. Look at how Hive UDFs did it. 
+  - the geometry object, efficiently serialized. Unless WKB is widly inefficient either to pack/unpack or in space consumed, it seems like a reasonable choice. Look at how Hive UDFs did it.
 
 * sub types:
   - generic `geometry`; `point`, `multipoint`, `polygon`, `multipolygon`, `line`, `multiline`
@@ -197,14 +197,14 @@ Bold == works; TODO == soon; strikethrough == later
   - I think the common case is that the SpatialReference is uniform across a type
     - so it should be specified in the schema and _not_ accommodated in the type
     - if that's not OK, you must ride the wkid along in its own field.
-    
+
 
 * `apache.pig.data.DataType`: `extractTypeFromClass`;
   - `compare` types (sort between string and map?)
 
 * sorting:
   - by quadord (sort by northwest corner, parents preceding descendants
-  - 
+  -
 
 
 ## (ignore)

@@ -41,7 +41,7 @@ import datafu.pig.geo.Projection;
 abstract public class PigGeometry implements Comparable {
   // TODO: make final once we figure out fuck you java
   protected long         quadord;
-  protected Geometry     geom;
+  protected OGCGeometry  geom;
   protected Envelope2D   env;
   // protected Long         id_hi;
   // protected Long         id_lo;
@@ -105,7 +105,7 @@ abstract public class PigGeometry implements Comparable {
   /**
    * @returns the shape itself in world (unprojected) coordinates
    */
-  public Geometry geometry() {
+  public OGCGeometry geometry() {
     return this.geom;
   }
 

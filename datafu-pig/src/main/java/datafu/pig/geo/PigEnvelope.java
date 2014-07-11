@@ -37,12 +37,12 @@ public class PigEnvelope extends PigGeometry {
   public PigEnvelope(Envelope2D envelope, Projection projection) {
     this.proj    = projection;
     this.env     = new Envelope2D(envelope.xmin, envelope.ymin, envelope.xmax, envelope.ymax);
-    this.geom    = new Envelope(env.xmin, env.ymin, env.xmax, env.ymax);
+    this.geom    = OGCGeometry.createFromEsriGeometry(new Envelope(env.xmin, env.ymin, env.xmax, env.ymax), null);
     //
     long[] qk_zl = QuadtileUtils.wsenToQmortonZl(env.xmin, env.ymin, env.xmax, env.ymax, proj);
     //
     long qk      = qk_zl[0];
     int  zl      = (int)qk_zl[1];
     this.quadord = QuadtileUtils.qmortonZlToQuadord(qk, zl);
-  }  
+  }
 }

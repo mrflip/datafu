@@ -27,6 +27,8 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Envelope2D;
 import com.esri.core.geometry.Point;
+import com.esri.core.geometry.ogc.OGCPoint;
+
 
 import datafu.pig.geo.Projection;
 import datafu.pig.geo.PigGeometry;
@@ -35,11 +37,11 @@ public class PigPoint extends PigGeometry {
   public PigPoint(Point pt, Projection projection) {
     this.proj    = projection;
     double lng   = pt.getX(), lat = pt.getY();
-    this.geom    = new Point(lng, lat);
+    this.geom    = new OGCPoint(new Point(lng, lat), null);
     this.env     = new Envelope2D(lng, lat, lng, lat);
     //
     int  zl      = QuadtileUtils.MAX_ZOOM_LEVEL;
     long qk      = QuadtileUtils.worldToQmorton(lng, lat, zl, proj);
     this.quadord = QuadtileUtils.qmortonZlToQuadord(qk, zl);
-  }  
+  }
 }

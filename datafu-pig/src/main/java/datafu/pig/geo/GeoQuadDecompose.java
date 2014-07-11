@@ -185,7 +185,7 @@ public class GeoQuadDecompose extends SimpleEvalFunc<DataBag>
         //
         List<OGCGeometry> joinables = joiner.nearish(geom_b.getEsriGeometry());
         //
-        // 
+        //
         for (OGCGeometry joinable: joinables) {
           Tuple result_tup = TupleFactory.getInstance().newTuple();
           result_tup.append(GeometryUtils.pigPayload(joinable));

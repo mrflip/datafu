@@ -32,12 +32,12 @@ import com.esri.core.geometry.OperatorFactoryLocal;
 import com.esri.core.geometry.CombineOperator;
 
 /**
- * GeoAction  -- (gA, gB) -> geom
+ * GeoCombine  -- (gA, gB) -> geom
  *
  * Union		    (gA,gB)
- * GeoDifference	    (gA,gB)
- * GeoXor	    (gA,gB)
- * GeoIntersection   (gA,gB)
+ * GeoDifference    (gA,gB)
+ * GeoXor	        (gA,gB)
+ * GeoIntersection  (gA,gB)
  *
  * TODO: ...
  *

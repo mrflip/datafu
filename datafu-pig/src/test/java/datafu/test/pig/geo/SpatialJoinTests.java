@@ -72,14 +72,14 @@ public class SpatialJoinTests extends PigTests
     "POLYGON (( 41 40, 41 120, 121 120, 121 40, 41 40 ))",
     "POLYGON (( 40 40, 78 120, 120 120, 120 40, 40 40 ))",
   };
-  
+
   public final static String[] EXAMPLE_POINTS = {
     "POINT( 40 40 )", // not in #3
-    "POINT( 48 42 )", // in all 
-    "POINT( 42 50 )", // in the bbox of all, but not actually in #4 
+    "POINT( 48 42 )", // in all
+    "POINT( 42 50 )", // in the bbox of all, but not actually in #4
     "POINT( 3   3 )", // in none
   };
-  
+
 
   public final static String[][] EXAMPLE_LAYOUTS = {
     { // "POLYGON (( 10 10, 10  90,  95  90,  95 10, 10 10 ))",
@@ -137,7 +137,7 @@ public class SpatialJoinTests extends PigTests
   // public void zQuadtileDecomposeTest() throws Exception
   // {
   //   List<Quadtile> qt_list;
-  // 
+  //
   //   for (int idx = 0; idx < EXAMPLE_SHAPES.length; idx++) {
   //     String test_shape = EXAMPLE_SHAPES[idx];
   //     //
@@ -151,7 +151,7 @@ public class SpatialJoinTests extends PigTests
   //     GeometryUtils.dump("");
   //     QuadtileTests.assertQuadtileHandlesMatch(qt_list, EXAMPLE_LAYOUTS[idx]);
   //   }
-  // 
+  //
   //   Quadtile parent_qt = new Quadtile(1, 0, 3, proj_1280);
   //   qt_list = parent_qt.descendantsAt(5);
   //   Collections.sort(qt_list, new Quadtile.TileIJComparator());
@@ -159,12 +159,12 @@ public class SpatialJoinTests extends PigTests
   //     GeometryUtils.dump("%s", qt);
   //   }
   // }
-  // 
+  //
   // @Test
   // public void sortingQuadtileTest() throws Exception
   // {
   //   List<Quadtile> qt_list, comp_1_list, comp_2_list;
-  // 
+  //
   //   for (int idx = 0; idx < EXAMPLE_SHAPES.length; idx++) {
   //     String test_shape = EXAMPLE_SHAPES[idx];
   //     //
@@ -206,21 +206,47 @@ public class SpatialJoinTests extends PigTests
  //      "03221100", "03221101", "03221102", "03221103", "03221110", "03221112");
  // }
 
+  /**
+  DEFINE GeoQuadDecompose datafu.pig.geo.GeoQuadDecompose();
+  feats_a   = LOAD 'shapes' as (feat:chararray);
+  feats_b   = LOAD 'points' as (feat:chararray);
+  all_feats = COGROUP feats_a ALL, feats_b ALL;
+  --
+  joined = FOREACH all_feats {
+    GENERATE
+      FLATTEN( GeoQuadDecompose(feats_a, feats_b) );
+  };
+  STORE joined INTO 'output';
+   */
+  @Multiline
+  private String quadDecompTest;
+
+  @Test
+  public void quadDecompTest() throws Exception
+  {
+    PigTest test = createPigTestFromString(quadDecompTest);
+    this.writeLinesToFile("shapes", EXAMPLE_SHAPES);
+    this.writeLinesToFile("points", EXAMPLE_POINTS);
+    test.runScript();
+    assertOutput(test, "joined",
+      "(POLYGON ((-84.3 24, -66.4 24, -66.4 48.8, -84.3 48.8, -84.3 24)))");
+  }
+
   // /**
-  // DEFINE QuadDecompose datafu.pig.geo.QuadDecompose();
+  // DEFINE GeoJoin datafu.pig.geo.GeoJoin();
   // feats_a   = LOAD 'shapes' as (feat:chararray);
   // feats_b   = LOAD 'points' as (feat:chararray);
   // all_feats = COGROUP feats_a ALL, feats_b ALL;
   // --
   // joined = FOREACH all_feats {
   //   GENERATE
-  //     FLATTEN( QuadDecompose(feats_a, feats_b) );
+  //     FLATTEN( QuadDecomposer(feats_a, feats_b) );
   // };
   // STORE joined INTO 'output';
   //  */
   // @Multiline
   // private String quadDecompTest;
-  // 
+  //
   // @Test
   // public void quadDecompTest() throws Exception
   // {

@@ -80,7 +80,7 @@ public final class QuadtileUtilsTests extends PigTests
   //   assertTileIJEquals(AUSTIN_TILEIJ_16,     qt.tileIJ());
   //   assertTileIJZLEquals(AUSTIN_TILEIJ_16,     qt.tileIJ());
   // }
-  // 
+  //
   // @Test
   // public void quadtileConstructorsTest() throws Exception
   // {
@@ -260,9 +260,10 @@ public final class QuadtileUtilsTests extends PigTests
       -90,
       proj.min_lat,
       -60, -30, -1e-8, 0, 1e-8, 30, 60,
-      55.776573018667705,
-      61.60639637,
-      61.606396371286266,
+      55.776573018667690,
+      55.776573018667690 + 0.0000000000001,
+      61.606396371386270,
+      61.606396371386270 + 0.0000000000001,
       proj.max_lat,
       90
     };

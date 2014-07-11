@@ -177,7 +177,7 @@ public final class QuadtileUtils {
    * @return qmorton of the specified parent, or the same qmorton for zldiff=0
    */
   public static long qmortonZoomBy(long qmorton, int zldiff) {
-    if (zldiff >= 0) { 
+    if (zldiff >= 0) {
       return qmorton >>> 2*zldiff;
     } else {
       return qmorton << (-2*zldiff);
@@ -186,7 +186,7 @@ public final class QuadtileUtils {
 
   public static long QUADORD_ZL_MASK = 0x000000000000001fL; // bits 5..1
   public static long QUADORD_QM_MASK = 0x3fffffffffffffc0L; // bits 62..7 ; bits 64, 63 and 6 always 0
-  
+
   /**
    *
    * Returns a key that naturally sorts in Z-order even across zoom levels -- a
@@ -198,10 +198,10 @@ public final class QuadtileUtils {
    * * The zl-3 quadtile # 123 has quadordKey() 123_0000_0000_0..._0003.
    * * Its zl-8 descendant 12310312 has quadord 123_1031_2000_0..._0020.
    * * Her direct nw child 123103120 sorts using 123_1031_2000_0..._0021 -- same
-   *   position bits, but following its parent due to higher zoom level.   
+   *   position bits, but following its parent due to higher zoom level.
    * * Descendant 1231_0312_0123_0123_0123_0123, at zl-28 (highest allowed),
    *   has quadord key 123_1031_2012_3012_3012_3012_3130.
-   * 
+   *
    * In this scheme bits 64, 63, and 6 will always be zero. The MSB (sign bit)
    * is reserved to pull the UTF-8 trick: set it to indicate special handling.
    */
@@ -209,7 +209,7 @@ public final class QuadtileUtils {
     int shift = 62 - 2*zl;
     return (qm << shift) | zl;
   }
-  
+
   /**
    * Qmorton of given quadord key
    * @see qmortonZlToQuadord
@@ -218,7 +218,7 @@ public final class QuadtileUtils {
     int zl = (int)(quadord & QUADORD_ZL_MASK);
     return quadord >>> (2*zl + 6);
   }
-  
+
   /**
    * Zoom level of given quadord key
    * @see qmortonZlToQuadord
@@ -267,36 +267,15 @@ public final class QuadtileUtils {
   public static long J_BITS = 0xAAAAAAAAAAAAAAAAL;
 
   // See http://bitmath.blogspot.com/2012/11/tesseral-arithmetic.html
-  // 
-  
-  /** Qmorton directly left of the given qmorton */
-  public static long qmortonNeighborWest(long qm) {
-    long   nbr_ibits = ((qm & I_BITS) - 1) & I_BITS;
-    return nbr_ibits |  (qm & J_BITS);
-  }
+  //
 
-  /** Qmorton to the direct right of the given qmorton */
-  public static long qmortonNeighborEast(long qm) {
-    long   nbr_ibits = ((qm | J_BITS) + 1) & I_BITS;
-    return nbr_ibits |  (qm & J_BITS);
-  }
-
-  /** Qmorton directly up of the given qmorton */
-  public static long qmortonNeighborNorth(long qm) {
-    long   nbr_jbits = ((qm & J_BITS) - 2) & J_BITS;
-    return nbr_jbits |  (qm & I_BITS);
-  }
-
-  /** Qmorton to the direct down of the given qmorton */
-  public static long qmortonNeighborSouth(long qm) {
-    long   nbr_jbits = ((qm | I_BITS) + 2) & J_BITS;
-    return nbr_jbits |  (qm & I_BITS);
-  }
 
   /** Qmorton to the direct south-east (down-right) of the given qmorton */
-  public static long qmortonNeighborSE(long qm) {
+  public static Long qmortonNeighborSE(long qm, int zl) {
     // See http://bitmath.blogspot.com/2012/11/tesseral-arithmetic.html
-    return (((qm | J_BITS) + 1) & I_BITS) | (((qm | I_BITS) + 2) & J_BITS);
+    Long i_part = (((qm | J_BITS) + 1) & I_BITS) % (1 << zl);
+    Long j_part = (((qm | I_BITS) + 2) & J_BITS);
+    return i_part | j_part;
   }
 
   /** Qmortons of each chiild tile at one finer zoom level */
@@ -304,58 +283,78 @@ public final class QuadtileUtils {
     long cqm = qm << 2;
     return new long[] { cqm|0, cqm|1, cqm|2, cqm|3 };
   }
-    
-  /**
-   * Given a tile morton key, returns a 9-element array of keys in the following
-   * order, right to left and up to down:
-   *
-   *     i-1,j-1   i,j-1    i+1,j-1
-   *     i-1,j     i,j      i+1,j
-   *     i-1,j+1   i,j+1    i+1,j+1
-   *
-   * Wherever a tile would be off the map, a null value appears in place of the
-   * pair.  See neighborsList if you only want the neighbors that exist.
-   *
-   */
-  public static Long[] qmortonNeighborhood(long qm, int zl) {
-    long max_qm = maxQmorton(zl);
-    long lf     = qmortonNeighborWest(qm);
-    long rt     = qmortonNeighborEast(qm);
 
-    Long[] nbrs = {
-      qmortonNeighborNorth(lf), qmortonNeighborNorth(qm), qmortonNeighborNorth(rt),
-      lf,                       qm,                       rt,
-      qmortonNeighborSouth(lf), qmortonNeighborSouth(qm), qmortonNeighborSouth(rt)
-    };
-    for (int idx = 0; idx < 9; idx++) {
-      if (nbrs[idx] < 0 || nbrs[idx] > max_qm) {
-        nbrs[idx] = null;
-      }
-    }
-    return nbrs;
-  }
-
-  /**
-   * Returns a list, in arbitrary order, of the qmortons for the given tile and
-   * all its eight neighbors.
-   *
-   * Most tiles have 9 neighbors.  However, qmortons for tiles off the map are
-   * not in the list; so a tjpical tile on the anti-meridian has only 6
-   * neighbors, and there's four lonely spots in the artic and antarctic with
-   * only four neighbors.
-   *
-   */
-  public static List<Long> qmortonNeighborhoodList(long qm, int zl) {
-    List<Long> result = new ArrayList<Long>(9);
-
-    Long[] nbrs = qmortonNeighborhood(qm, zl);
-    for (int idx = 0; idx < 9; idx++) {
-      if (nbrs[idx] != null) {
-        result.add(nbrs[idx]);
-      }
-    }
-    return result;
-  }
+  // /** Qmorton directly left of the given qmorton */
+  // public static Long qmortonNeighborWest(long qm) {
+  //   Long   dec_ibits = (((qm & I_BITS) - 1) & I_BITS) % (1 << zl);
+  //   return dec_ibits |  (qm & J_BITS);
+  // }
+  //
+  // /** Qmorton to the direct right of the given qmorton */
+  // public static Long qmortonNeighborEast(long qm) {
+  //
+  //   return inc_ibits |  (qm & J_BITS);
+  // }
+  //
+  // /** Qmorton directly up of the given qmorton */
+  // public static Long qmortonNeighborNorth(long qm) {
+  //   Long   dec_jbits = ((qm & J_BITS) - 2) & J_BITS;
+  //   if    (dec_jbits < 0) { return null; }
+  //   return dec_jbits |  (qm & I_BITS);
+  // }
+  //
+  // /** Qmorton to the direct down of the given qmorton */
+  // public static Long qmortonNeighborSouth(long qm) {
+  //   Long   inc_jbits = ((qm | I_BITS) + 2) & J_BITS;
+  //   if    (inc_jbits > (2 << zl)) { return null; }
+  //   return inc_jbits |  (qm & I_BITS);
+  // }
+  //
+  // /**
+  //  * Given a tile morton key, returns a 9-element array of keys in the following
+  //  * order, right to left and up to down:
+  //  *
+  //  *     i-1,j-1   i,j-1    i+1,j-1
+  //  *     i-1,j     i,j      i+1,j
+  //  *     i-1,j+1   i,j+1    i+1,j+1
+  //  *
+  //  * Wherever a tile would be off the map in i, it wraps to the other
+  //  * side. Wherever a tile would be off the map in **j**, a null value appears
+  //  * in place of the pair.  See neighborsList if you only want the neighbors
+  //  * that exist.
+  //  */
+  // public static Long[] qmortonNeighborhood(long qm, int zl) {
+  //   Long lf     = qmortonNeighborWest(qm, zl);
+  //   Long rt     = qmortonNeighborEast(qm, zl);
+  //   //
+  //   Long[] nbrs = {
+  //     qmortonNeighborNorth(lf,zl), qmortonNeighborNorth(qm,zl), qmortonNeighborNorth(rt,zl),
+  //     lf,                          qm,                          rt,
+  //     qmortonNeighborSouth(lf,zl), qmortonNeighborSouth(qm,zl), qmortonNeighborSouth(rt,zl)
+  //   };
+  //   return nbrs;
+  // }
+  //
+  // /**
+  //  * Returns a list, in arbitrary order, of the qmortons for the given tile and
+  //  * all its eight neighbors.
+  //  *
+  //  * Most tiles have 9 neighbors.  However, qmortons for tiles off the map are
+  //  * not in the list; so a tjpical tile on the anti-meridian has only 6
+  //  * neighbors, and there's four lonely spots in the artic and antarctic with
+  //  * only four neighbors.
+  //  */
+  // public static List<Long> qmortonNeighborhoodList(long qm, int zl) {
+  //   List<Long> result = new ArrayList<Long>(9);
+  //
+  //   Long[] nbrs = qmortonNeighborhood(qm, zl);
+  //   for (int idx = 0; idx < 9; idx++) {
+  //     if (nbrs[idx] != null) {
+  //       result.add(nbrs[idx]);
+  //     }
+  //   }
+  //   return result;
+  // }
 
   /**
    * Qmorton of the smallest parent tile containing the given tiles. Both
@@ -411,7 +410,7 @@ public final class QuadtileUtils {
 
   /****************************************************************************
    *
-   * Quadstring Concerns
+   * Quadstrings (Base-4 Morton keys)
    *
    */
 
@@ -555,7 +554,7 @@ public final class QuadtileUtils {
     long qm_nw = worldToQmorton(west, north, MAX_ZOOM_LEVEL, proj);
     long qm_se = worldToQmorton(east, south, MAX_ZOOM_LEVEL, proj);
     return smallestContaining(qm_nw, qm_se, MAX_ZOOM_LEVEL);
-  }  
+  }
 
   /**
    * WGS84 coordinates for tile's west, south, east, and north extents in the

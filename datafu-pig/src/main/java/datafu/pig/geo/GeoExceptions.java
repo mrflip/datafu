@@ -49,7 +49,7 @@ public final class GeoExceptions {
         wkid_a, wkid_b);
     }
   }
-    
+
   public static class InvalidTextException extends IllegalArgumentException {
     public static String printable(String text) {
       return GeometryUtils.printableMessage("Ill-formed text: (%s)",

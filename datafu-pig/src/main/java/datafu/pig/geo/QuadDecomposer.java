@@ -74,14 +74,14 @@ public class QuadDecomposer {
    * @param zl_fine   The finest  (i.e. towards 30) tile to return. All tiles will be at or coarser than this.
    * @return list of quadtiles in arbitrary order.
    */
-  public static List<PigGeometry> decompose(PigGeometry shape, int zl_coarse, int zl_fine) {
-    return decompose(shape.geometry(), shape.qmorton(), shape.zoomlvl(), zl_coarse, zl_fine, shape.projection());
+  public static DataBag decompose(PigGeometry shape, int zl_coarse, int zl_fine) {
+    return decompose(shape.geometry().getEsriGeometry(), shape.qmorton(), shape.zoomlvl(), zl_coarse, zl_fine, shape.projection());
   }
 
-  public static List<PigGeometry> decompose(Geometry geom, long qmorton, int zl, int zl_coarse, int zl_fine, Projection proj) {
-    List<PigGeometry> bucket = new ArrayList<PigGeometry>();
-    addQuadsOnTile(bucket, geom, qmorton, zl, zl_coarse, zl_fine, proj);
-    return bucket;
+  public static DataBag decompose(Geometry geom, long qmorton, int zl, int zl_coarse, int zl_fine, Projection proj) {
+    DataBag result_bag = BagFactory.getInstance().newDefaultBag();
+    addQuadsOnTile(result_bag, geom, qmorton, zl, zl_coarse, zl_fine, proj);
+    return result_bag;
   }
 
   protected static Envelope quadtileEnvelope(long qmorton, int zl, Projection proj) {
@@ -89,34 +89,42 @@ public class QuadDecomposer {
     return new Envelope(wsen[0], wsen[1], wsen[2], wsen[3]);
   }
 
-  protected static void addQuadsOnTile(List<PigGeometry> bucket, Geometry geom, long qmorton, int zl, int zl_coarse, int zl_fine, Projection proj) {
+  protected static void addQuad(DataBag result_bag, long quadord, Geometry es_geom) {
+    Tuple  result_tup = TupleFactory.getInstance().newTuple();
+    String payload = GeometryUtils.pigPayload(es_geom);
+    result_tup.append(quadord);
+    result_tup.append(payload);
+    result_bag.add(result_tup);
+  }
+
+  protected static void addQuadsOnTile(DataBag result_bag, Geometry geom, long qmorton, int zl, int zl_coarse, int zl_fine, Projection proj) {
     // Portion of the shape on this tile
     Envelope tile_env = quadtileEnvelope(qmorton, zl, proj);
     Geometry geom_on_tile = GeometryEngine.intersect(geom, tile_env, null);
-    //dump("%-20s %2d->%2d %3d %18s %s %s", "Decomposing", zl_coarse, zl_fine, bucket.size(), geom, envelope, geom_on_tile);
+    //dump("%-20s %2d->%2d %3d %18s %s %s", "Decomposing", zl_coarse, zl_fine, result_bag.size(), geom, envelope, geom_on_tile);
     //
     if (geom_on_tile.isEmpty()) {
       // intersection is empty: add nothing to the list and return.
-      // dump("%-20s %2d->%2d %3d %s", "No intersection", zl_coarse, zl_fine, bucket.size(), geom_on_tile);
+      // dump("%-20s %2d->%2d %3d %s", "No intersection", zl_coarse, zl_fine, result_bag.size(), geom_on_tile);
       return;
       //
     } else if (zl  >= zl_fine) {
       // zl at finest limit: add tile, stop recursing
-      // dump("%-20s %2d->%2d %3d", "zl meets finest limit", zl_coarse, zl_fine, bucket.size());
+      // dump("%-20s %2d->%2d %3d", "zl meets finest limit", zl_coarse, zl_fine, result_bag.size());
       //
-      bucket.add(new PigShape(geom, proj));
+      addQuad(result_bag, QuadtileUtils.qmortonZlToQuadord(qmorton, zl), geom);
     } else if ((zl >= zl_coarse) && GeometryEngine.within(tile_env, geom_on_tile, null)) {
       // completely within object: add self, return
-      // dump("%-20s %2d->%2d %3d %s contains %s", "contained in shape", zl_coarse, zl_fine, bucket.size(), geom_on_tile, getEnvelope());
+      // dump("%-20s %2d->%2d %3d %s contains %s", "contained in shape", zl_coarse, zl_fine, result_bag.size(), geom_on_tile, getEnvelope());
       //
-      bucket.add(new PigShape(geom, proj));
+      addQuad(result_bag, QuadtileUtils.qmortonZlToQuadord(qmorton, zl), geom);
     } else {
       // otherwise, decompose, add those tiles.
       long[] child_qms = QuadtileUtils.qmortonChildren(qmorton);
-      addQuadsOnTile(bucket, geom_on_tile, child_qms[0], zl+1, zl_coarse, zl_fine, proj);
-      addQuadsOnTile(bucket, geom_on_tile, child_qms[1], zl+1, zl_coarse, zl_fine, proj);
-      addQuadsOnTile(bucket, geom_on_tile, child_qms[2], zl+1, zl_coarse, zl_fine, proj);
-      addQuadsOnTile(bucket, geom_on_tile, child_qms[3], zl+1, zl_coarse, zl_fine, proj);
+      addQuadsOnTile(result_bag, geom_on_tile, child_qms[0], zl+1, zl_coarse, zl_fine, proj);
+      addQuadsOnTile(result_bag, geom_on_tile, child_qms[1], zl+1, zl_coarse, zl_fine, proj);
+      addQuadsOnTile(result_bag, geom_on_tile, child_qms[2], zl+1, zl_coarse, zl_fine, proj);
+      addQuadsOnTile(result_bag, geom_on_tile, child_qms[3], zl+1, zl_coarse, zl_fine, proj);
     }
   }
 
@@ -129,7 +137,7 @@ public class QuadDecomposer {
   //   }
   //   return child_tiles;
   // }
-  // 
+  //
   // /**
   //  * PigGeometry at the given zoom level containing this quadtile.
   //  *
@@ -167,5 +175,5 @@ public class QuadDecomposer {
   // public static Quadtile quadtileContaining(double lf, double dn, double rt, double up, Projection projection) {
   //   return quadtileContaining(lf, dn, rt, up, QuadtileUtils.MAX_ZOOM_LEVEL, projection);
   // }
-  
+
 }
