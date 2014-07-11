@@ -48,36 +48,55 @@ import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 
 import datafu.pig.geo.GeometryUtils;
-import datafu.pig.geo.PigGeometry;
+import datafu.pig.geo.Quadtile;
 
 public class GeoJoin  extends SimpleEvalFunc<DataBag> {
   private final SweepStack[] stacks;
+  private final TupleFactory tuple_factory;
 
   public static final Projection.GlobeProjection MERCATOR = new Projection.Mercator();
 
   public GeoJoin() {
     this.stacks = new SweepStack[] { new SweepStack(), new SweepStack() };
+    this.tuple_factory = TupleFactory.getInstance();
+  }
+
+  public static class QuadtileCarrier extends Quadtile {
+    public OGCGeometry geom;
+    public QuadtileCarrier(long _quadord, OGCGeometry geometry, Projection projection) {
+      super(_quadord, projection);
+      this.geom = geometry;
+    }    
   }
 
   // /**
   //  * True if *this* tile contains or equals the other.
   //  */
-  // public boolean tileContains(PigGeometry other) {
+  // public boolean tileContains(Quadtile other) {
   //   return QuadtileUtils.quadordAContainsB(quadord, other.quadord());
   // }
 
-  public static class SweepStack extends ArrayDeque<PigGeometry> {
+
+  public static class SweepStack extends ArrayDeque<QuadtileCarrier> {
     /** remove all irrelevant tiles from the stack */
-    protected void flush(PigGeometry pgeom) {
-      long   t_quadord = pgeom.quadord();
+    protected void flush(QuadtileCarrier quadcar) {
+      long   t_quadord = quadcar.quadord();
       while (! isEmpty()) {
-        PigGeometry elt = removeLast();
+        QuadtileCarrier elt = removeLast();
         if (QuadtileUtils.quadordAContainsB(elt.quadord(), t_quadord)) {
           addLast(elt);
           break;
         }
       }
     }
+  }
+
+  public Tuple joinedTuple(OGCGeometry... geoms) {
+    Tuple result_tup = tuple_factory.newTuple();
+    for (OGCGeometry geom: geoms) {
+      result_tup.append(GeometryUtils.pigPayload(geom));
+    }
+    return result_tup;
   }
 
   /**
@@ -99,7 +118,7 @@ public class GeoJoin  extends SimpleEvalFunc<DataBag> {
    * @param table_idx  -- the position index of the table the new element comes from
    *
    */
-  public void sweepAndMatch(DataBag result_bag, PigGeometry new_elt, int table_idx) {
+  public void sweepAndMatch(DataBag result_bag, QuadtileCarrier new_elt, int table_idx) {
     // Remove irrelevant items
     for (SweepStack stack: stacks) {
       stack.flush(new_elt);
@@ -108,18 +127,12 @@ public class GeoJoin  extends SimpleEvalFunc<DataBag> {
     stacks[table_idx].addLast(new_elt);
     // pair new item with all others
     if (table_idx == 0) {
-      for (PigGeometry other_elt: stacks[1]) {
-        Tuple result_tup = TupleFactory.getInstance().newTuple();
-        result_tup.append(new_elt);
-        result_tup.append(other_elt);
-        result_bag.add(result_tup);
+      for (QuadtileCarrier other_elt: stacks[1]) {
+        result_bag.add( joinedTuple(new_elt.geom, other_elt.geom) );
       }
     } else {
-      for (PigGeometry other_elt: stacks[0]) {
-        Tuple result_tup = TupleFactory.getInstance().newTuple();
-        result_tup.append(other_elt);
-        result_tup.append(new_elt);
-        result_bag.add(result_tup);
+      for (QuadtileCarrier other_elt: stacks[0]) {
+        result_bag.add( joinedTuple(other_elt.geom, new_elt.geom) );
       }
     }
   }
@@ -138,9 +151,9 @@ public class GeoJoin  extends SimpleEvalFunc<DataBag> {
         String  payload   = (String)payload_tup.get(2);
         OGCGeometry geom  = GeometryUtils.payloadToGeom(payload);
         if (geom == null){ continue; }
-        PigShape shape = new PigShape(geom, MERCATOR);
+        QuadtileCarrier quadcar = new QuadtileCarrier(quadord, geom, MERCATOR);
         //
-        sweepAndMatch(result_bag, shape, table_idx);
+        sweepAndMatch(result_bag, quadcar, table_idx);
       }
       return result_bag;
     }

@@ -47,6 +47,8 @@ import com.esri.core.geometry.Envelope2D;
 import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.Point;
 
+import datafu.pig.geo.Quadtile;
+
 public final class QuadtileUtilsTests extends PigTests
 {
 
@@ -68,51 +70,50 @@ public final class QuadtileUtilsTests extends PigTests
   private final static double[] AUS_WSEN_11  = {
     -97.910156250000,   30.145127184376120, -97.734375001,   30.297017883372035 };
 
-  // @Test
-  // public void quadtileBasicsTest() throws Exception
-  // {
-  //   Quadtile qt   = Quadtile.quadtileContaining(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 16, new Projection.Mercator());
-  //   Assert.assertEquals(AUSTIN_QUADSTR, qt.quadstr());
-  //   Assert.assertEquals(AUSTIN_QMORTON,      qt.qmorton());
-  //   Assert.assertEquals(AUSTIN_TILEIJ_16[0], qt.tileI());
-  //   Assert.assertEquals(AUSTIN_TILEIJ_16[1], qt.tileJ());
-  //   Assert.assertEquals(AUSTIN_QMORTON,      qt.qmorton());
-  //   assertTileIJEquals(AUSTIN_TILEIJ_16,     qt.tileIJ());
-  //   assertTileIJZLEquals(AUSTIN_TILEIJ_16,     qt.tileIJ());
-  // }
-  //
-  // @Test
-  // public void quadtileConstructorsTest() throws Exception
-  // {
-  //   Quadtile qt;
-  //   Projection proj = new Projection.Mercator();
-  //   double
-  //     lng    = AUSTIN_LNGLAT[0],
-  //     lat    = AUSTIN_LNGLAT[1],
-  //     quad_w = AUS_WSEN_16[0],
-  //     quad_s = AUS_WSEN_16[1]+1e-9, // nudge the bottom right corner back into the zl-16 tile
-  //     quad_e = AUS_WSEN_16[2]-1e-9,
-  //     quad_n = AUS_WSEN_16[3];
-  //   //
-  //   qt = Quadtile.quadtileContaining(lng, lat, 16, proj);
-  //   Assert.assertEquals("From lng/lat",                                   AUSTIN_QUADSTR, qt.quadstr());
-  //   qt = Quadtile.quadtileContaining(new Point(lng, lat), 16, proj);
-  //   Assert.assertEquals("From Point Geometry",                            AUSTIN_QUADSTR, qt.quadstr());
-  //   qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), proj);
-  //   Assert.assertEquals("From Envelope",                                  AUSTIN_QUADSTR, qt.quadstr());
-  //   qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 16, proj);
-  //   Assert.assertEquals("From shape and zl",                              AUSTIN_QUADSTR, qt.quadstr());
-  //   qt = Quadtile.quadtileContaining(quad_w, quad_s, quad_e, quad_n, 16, proj);
-  //   Assert.assertEquals("From coords",                                    AUSTIN_QUADSTR, qt.quadstr());
-  //   qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 20, proj);
-  //   Assert.assertEquals("From shape & finer zl -- zl fits the shape",     AUSTIN_QUADSTR, qt.quadstr());
-  //   qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 11, proj);
-  //   Assert.assertEquals("From shape & coarser zl -- gives zl specified",  AUSTIN_QUADSTR.substring(0,11), qt.quadstr());
-  //   qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 20, proj);
-  //   Assert.assertEquals("From coords & finer zl -- zl fits the shape",    AUSTIN_QUADSTR, qt.quadstr());
-  //   qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 11, proj);
-  //   Assert.assertEquals("From coords & coarser zl -- gives zl specified", AUSTIN_QUADSTR.substring(0,11), qt.quadstr());
-  // }
+  @Test
+  public void quadtileBasicsTest() throws Exception
+  {
+    Quadtile qt   = Quadtile.quadtileContaining(AUSTIN_LNGLAT[0], AUSTIN_LNGLAT[1], 16, new Projection.Mercator());
+    Assert.assertEquals(AUSTIN_QUADSTR, qt.quadstr());
+    Assert.assertEquals(AUSTIN_QMORTON,      qt.qmorton());
+    Assert.assertEquals(AUSTIN_TILEIJ_16[0], qt.tileI());
+    Assert.assertEquals(AUSTIN_TILEIJ_16[1], qt.tileJ());
+    Assert.assertEquals(AUSTIN_QMORTON,      qt.qmorton());
+    assertTileIJZlEquals(AUSTIN_TILEIJ_16,   qt.tileIJZl());
+  }
+  
+  @Test
+  public void quadtileConstructorsTest() throws Exception
+  {
+    Quadtile qt;
+    Projection proj = new Projection.Mercator();
+    double
+      lng    = AUSTIN_LNGLAT[0],
+      lat    = AUSTIN_LNGLAT[1],
+      quad_w = AUS_WSEN_16[0],
+      quad_s = AUS_WSEN_16[1]+1e-9, // nudge the bottom right corner back into the zl-16 tile
+      quad_e = AUS_WSEN_16[2]-1e-9,
+      quad_n = AUS_WSEN_16[3];
+    //
+    qt = Quadtile.quadtileContaining(lng, lat, 16, proj);
+    Assert.assertEquals("From lng/lat",                                   AUSTIN_QUADSTR, qt.quadstr());
+    // qt = Quadtile.quadtileContaining(new Point(lng, lat), 16, proj);
+    // Assert.assertEquals("From Point Geometry",                            AUSTIN_QUADSTR, qt.quadstr());
+    // qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), proj);
+    // Assert.assertEquals("From Envelope",                                  AUSTIN_QUADSTR, qt.quadstr());
+    // qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 16, proj);
+    // Assert.assertEquals("From shape and zl",                              AUSTIN_QUADSTR, qt.quadstr());
+    // qt = Quadtile.quadtileContaining(quad_w, quad_s, quad_e, quad_n, 16, proj);
+    // Assert.assertEquals("From coords",                                    AUSTIN_QUADSTR, qt.quadstr());
+    // qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 20, proj);
+    // Assert.assertEquals("From shape & finer zl -- zl fits the shape",     AUSTIN_QUADSTR, qt.quadstr());
+    // qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 11, proj);
+    // Assert.assertEquals("From shape & coarser zl -- gives zl specified",  AUSTIN_QUADSTR.substring(0,11), qt.quadstr());
+    // qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 20, proj);
+    // Assert.assertEquals("From coords & finer zl -- zl fits the shape",    AUSTIN_QUADSTR, qt.quadstr());
+    // qt = Quadtile.quadtileContaining(new Envelope(quad_w, quad_s, quad_e, quad_n), 11, proj);
+    // Assert.assertEquals("From coords & coarser zl -- gives zl specified", AUSTIN_QUADSTR.substring(0,11), qt.quadstr());
+  }
 
   @Test
   public void quadtileConversionTest() throws Exception
@@ -293,7 +294,7 @@ public final class QuadtileUtilsTests extends PigTests
     Assert.assertEquals(exp_ij[1], res_ij[1]);
   }
 
-  private void assertTileIJZLEquals(int[] exp_ij_zl, int[] res_ij_zl) {
+  private void assertTileIJZlEquals(int[] exp_ij_zl, int[] res_ij_zl) {
     Assert.assertEquals(exp_ij_zl[0], res_ij_zl[0]);
     Assert.assertEquals(exp_ij_zl[1], res_ij_zl[1]);
     Assert.assertEquals(exp_ij_zl[2], res_ij_zl[2]);
@@ -318,25 +319,25 @@ public final class QuadtileUtilsTests extends PigTests
     assertWithin(exp_ll, res_ll, 1e-9);
   }
 
-  // /**
-  //  *
-  //  * Asserts that the list of expected quadstr handles matches the list of
-  //  * handles for the given Quadtiles.
-  //  *
-  //  * Assert.assertEquals dumps both lists in full if there is any difference,
-  //  * which is a hassle in all sorts of ways. This instead reports any elements
-  //  * of one missing in the other, which is what you want to know.
-  //  *
-  //  */
-  // public static void assertQuadtileHandlesMatch(List<Quadtile> qt_list, String... expected_quadstrs) {
-  //   List<String> missing_quadstrs = new ArrayList(Arrays.asList(expected_quadstrs));
-  //   List<String> extra_quadstrs   = new ArrayList();
-  //   for (Quadtile qt: qt_list) {
-  //     if (! missing_quadstrs.remove(qt.quadstr())) { extra_quadstrs.add(qt.quadstr()); };
-  //   }
-  //   // Assert.assertEquals(new ArrayList(), extra_quadstrs);
-  //   // Assert.assertEquals(new ArrayList(), missing_quadstrs);
-  //   GeometryUtils.dump("%s - %s", extra_quadstrs, missing_quadstrs);
-  // }
+  /**
+   *
+   * Asserts that the list of expected quadstr handles matches the list of
+   * handles for the given Quadtiles.
+   *
+   * Assert.assertEquals dumps both lists in full if there is any difference,
+   * which is a hassle in all sorts of ways. This instead reports any elements
+   * of one missing in the other, which is what you want to know.
+   *
+   */
+  public static void assertQuadtileHandlesMatch(List<Quadtile> qt_list, String... expected_quadstrs) {
+    List<String> missing_quadstrs = new ArrayList(Arrays.asList(expected_quadstrs));
+    List<String> extra_quadstrs   = new ArrayList();
+    for (Quadtile qt: qt_list) {
+      if (! missing_quadstrs.remove(qt.quadstr())) { extra_quadstrs.add(qt.quadstr()); };
+    }
+    // Assert.assertEquals(new ArrayList(), extra_quadstrs);
+    // Assert.assertEquals(new ArrayList(), missing_quadstrs);
+    GeometryUtils.dump("%s - %s", extra_quadstrs, missing_quadstrs);
+  }
 
 }
