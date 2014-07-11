@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
- 
+
 package datafu.pig.geo;
 
 import org.apache.pig.data.DataType;
@@ -25,7 +25,7 @@ import org.apache.pig.impl.logicalLayer.schema.Schema;
 import datafu.pig.util.SimpleEvalFunc;
 
 /**
- * Computes the distance (in miles) between two latitude-longitude pairs 
+ * Computes the distance (in miles) between two latitude-longitude pairs
  * using the {@link <a href="http://en.wikipedia.org/wiki/Haversine_formula" target="_blank">Haversine formula</a>}.
  *
  * <p>

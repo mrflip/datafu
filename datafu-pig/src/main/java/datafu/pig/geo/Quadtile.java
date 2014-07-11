@@ -42,29 +42,24 @@ public class Quadtile implements Comparable {
   protected final long   qk;
   protected final int    zl;
   protected final long   quadord;
-  // protected Long         id_hi;
-  // protected Long         id_lo;
-  //
   protected Projection   proj;
-  //
-  // protected final int      srid;
-  // protected final int      geom_type;
-  //
-  // memoized values
-  // protected SpatialReference   spatial_reference;
-  // protected Point              centroid;
 
-  public Quadtile(long qmorton, int zoomlvl, Projection projection) {
-    this.qk      = qmorton;
-    this.zl      = zoomlvl;
-    this.quadord = QuadtileUtils.qmortonZlToQuadord(qk, zl);
-    this.proj    = projection;
-  }
+  /* ***************************************************************************
+   *
+   * Constructors / Factories
+   */
 
   public Quadtile(long _quadord, Projection projection) {
     this.quadord = _quadord;
     this.zl      = QuadtileUtils.quadordToZl(quadord);
     this.qk      = QuadtileUtils.quadordToQmorton(quadord);
+    this.proj    = projection;
+  }
+
+  public Quadtile(long qmorton, int zoomlvl, Projection projection) {
+    this.qk      = qmorton;
+    this.zl      = zoomlvl;
+    this.quadord = QuadtileUtils.qmortonZlToQuadord(qk, zl);
     this.proj    = projection;
   }
 
@@ -95,7 +90,11 @@ public class Quadtile implements Comparable {
   public static Quadtile quadtileContaining(Envelope2D envelope, Projection projection) {
     long[] qk_zl = QuadtileUtils.wsenToQmortonZl(
       envelope.xmin, envelope.ymin, envelope.xmax, envelope.ymax, projection);
-    //
+    return new Quadtile(qk_zl[0], (int)qk_zl[1], projection);
+  }
+
+  public static Quadtile quadtileContaining(double west, double south, double east, double north, Projection projection) {
+    long[] qk_zl = QuadtileUtils.wsenToQmortonZl(west, south, east, north, projection);
     return new Quadtile(qk_zl[0], (int)qk_zl[1], projection);
   }
 
@@ -105,10 +104,12 @@ public class Quadtile implements Comparable {
 
   public static Quadtile quadtileContaining(double lng, double lat, int zl, Projection projection) {
     long qk      = QuadtileUtils.worldToQmorton(lng, lat, zl, projection);
-    //
     return new Quadtile(qk, zl, projection);
   }
-  
+
+  public static Quadtile quadtileContaining(double lng, double lat, Projection projection) {
+    return quadtileContaining(lng, lat, QuadtileUtils.MAX_ZOOM_LEVEL, projection);
+  }
 
   /* ***************************************************************************
    *
@@ -185,14 +186,13 @@ public class Quadtile implements Comparable {
   /**
    * @returns coordinates as an array: { tile_i, tile_j, zoomlvl }
    */
-  public int[]  tileIJZl() { return QuadtileUtils.qmortonToTileIJ(qmorton()); }
+  public int[]  tileIJZl() { return QuadtileUtils.qmortonToTileIJ(qmorton(), zl); }
 
   public String toString() {
     double[] coords = wsen();
-    return GeometryUtils.printableMessage("%s %-10s@%2d [%4d %4d] (%6.1f %5.1f %6.1f %5.1f) %s",
+    return GeometryUtils.printableMessage("%s %-10s@%2d [%4d %4d]", // (%6.1f %5.1f %6.1f %5.1f) %s",
       this.getClass().getSimpleName(),
-      quadstr(), zoomlvl(), tileI(), tileJ(), coords[0], coords[1], coords[2], coords[3],
-      envelope());
+      quadstr(), zoomlvl(), tileI(), tileJ()); // , coords[0], coords[1], coords[2], coords[3]);
   }
 
   /**
@@ -279,13 +279,14 @@ public class Quadtile implements Comparable {
    * @param zl_fine   The finest  (i.e. towards 30) tile to return. All tiles will be at or coarser than this.
    * @return list of quadtiles in arbitrary order.
    */
-  public DataBag decompose(OGCGeometry geom, int zl_coarse, int zl_fine) {
-    return decompose(geom.getEsriGeometry(), zl_coarse, zl_fine);
+  public static DataBag decompose(OGCGeometry geom, int zl_coarse, int zl_fine, Projection projection) {
+    return decompose(geom.getEsriGeometry(), zl_coarse, zl_fine, projection);
   }
 
-  public DataBag decompose(Geometry geom, int zl_coarse, int zl_fine) {
+  public static DataBag decompose(Geometry geom, int zl_coarse, int zl_fine, Projection projection) {
+    Quadtile container = quadtileContaining(geom, projection);
     DataBag result_bag = BagFactory.getInstance().newDefaultBag();
-    addQuadsOnTile(result_bag, geom, zl_coarse, zl_fine);
+    container.addQuadsOnTile(result_bag, geom, zl_coarse, zl_fine);
     return result_bag;
   }
 
@@ -293,7 +294,7 @@ public class Quadtile implements Comparable {
     Envelope tile_env = envelope();
     // Portion of the shape on this tile
     Geometry geom_on_tile = GeometryEngine.intersect(geom, tile_env, null);
-    //dump("%-20s %2d->%2d %3d %18s %s %s", "Decomposing", zl_coarse, zl_fine, result_bag.size(), geom, envelope, geom_on_tile);
+    // dump("%-20s %2d->%2d %3d %18s %s %s", "Decomposing", zl_coarse, zl_fine, result_bag.size(), geom, tile_env, geom_on_tile);
     //
     if (geom_on_tile.isEmpty()) {
       // intersection is empty: add nothing to the list and return.
@@ -304,24 +305,24 @@ public class Quadtile implements Comparable {
       // zl at finest limit: add tile, stop recursing
       // dump("%-20s %2d->%2d %3d", "zl meets finest limit", zl_coarse, zl_fine, result_bag.size());
       //
-      addQuad(result_bag, geom_on_tile);
+      addQuadGeomTuple(result_bag, geom_on_tile);
     } else if ((zoomlvl() >= zl_coarse) && GeometryEngine.within(tile_env, geom_on_tile, null)) {
       // completely within object: add self, return
-      // dump("%-20s %2d->%2d %3d %s contains %s", "contained in shape", zl_coarse, zl_fine, result_bag.size(), geom_on_tile, getEnvelope());
+      // dump("%-20s %2d->%2d %3d %s contains %s", "contained in shape", zl_coarse, zl_fine, result_bag.size(), geom_on_tile, tile_env);
       //
-      addQuad(result_bag, geom_on_tile);
+      addQuadGeomTuple(result_bag, geom_on_tile);
     } else {
       // otherwise, decompose, add those tiles.
-      for (Quadtile qt: childQuadtiles()) {
-        qt.addQuadsOnTile(result_bag, geom_on_tile, zl_coarse, zl_fine);
+      for (Quadtile child: childQuadtiles()) {
+        child.addQuadsOnTile(result_bag, geom_on_tile, zl_coarse, zl_fine);
       }
     }
   }
 
-  protected void addQuad(DataBag result_bag, Geometry es_geom) {
+  protected void addQuadGeomTuple(DataBag result_bag, Geometry es_geom) {
     Tuple  result_tup = TupleFactory.getInstance().newTuple();
     String payload = GeometryUtils.pigPayload(es_geom);
-    result_tup.append(quadord());
+    result_tup.append(new Long(quadord()));
     result_tup.append(payload);
     result_bag.add(result_tup);
   }
@@ -335,45 +336,10 @@ public class Quadtile implements Comparable {
     }
     return child_tiles;
   }
-  //
-  // /**
-  //  * Quadtile at the given zoom level containing this quadtile.
-  //  *
-  //  * @param zl_anc    Zoom level of detail for the ancestor. Must not be finer than the tile's zoomlvl
-  //  * @return quadtile at the given zoom level and which contains or equals this one.
-  //  */
-  // public Quadtile ancestor(int zl_anc) {
-  //   long qk_anc = QuadtileUtils.qmortonAncestor(qk, zl, zl_anc);
-  //   return new Quadtile(qk_anc, zl_anc, proj);
-  // }
-  //
-  // public List<Quadtile> descendantsAt(int target_zl) {
-  //   if (target_zl < zl) { throw new IllegalArgumentException("Cannot iterate descendants at a higher level: my zl "+zl+" req zl "+target_zl ); }
-  //   return decompose(getEnvelope(), target_zl, target_zl);
-  // };
-  //
-  // public static Quadtile quadtileContaining(double lng, double lat, int zoomlvl, Projection projection) {
-  //   long qmorton = QuadtileUtils.worldToQmorton(lng, lat, zoomlvl, projection);
-  //   return new Quadtile(qmorton, zoomlvl, projection);
-  // }
-  //
-  // public static Quadtile quadtileContaining(double lng, double lat, Projection projection) {
-  //   return quadtileContaining(lng, lat, QuadtileUtils.MAX_ZOOM_LEVEL, projection);
-  // }
-  //
-  // public static Quadtile quadtileContaining(double lf, double dn, double rt, double up, int zoomlvl, Projection projection) {
-  //   long qk_lfup = QuadtileUtils.worldToQmorton(lf, up, zoomlvl, projection);
-  //   long qk_rtdn = QuadtileUtils.worldToQmorton(rt, dn, zoomlvl, projection);
-  //   long[] qk_zl = QuadtileUtils.smallestContaining(qk_lfup, qk_rtdn, zoomlvl);
-  //   Quadtile quadtile = new Quadtile(qk_zl[0], (int)qk_zl[1], projection);
-  //   //
-  //   return quadtile;
-  // }
-  //
-  // public static Quadtile quadtileContaining(double lf, double dn, double rt, double up, Projection projection) {
-  //   return quadtileContaining(lf, dn, rt, up, QuadtileUtils.MAX_ZOOM_LEVEL, projection);
-  // }
 
+  public Quadtile[] neigborhood() {
+    throw new RuntimeException("not implemented");
+  }
 
   public void dump(String fmt, Object... args) {
     fmt = String.format("******\t%30s| %s", this.toString(), fmt);

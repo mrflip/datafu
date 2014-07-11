@@ -83,22 +83,32 @@ public final class QuadtileUtils {
    */
   public static final int   MAX_ZOOM_LEVEL   = 28;
 
-  // public static final double EDGE_FUDGE      = 1e-10;
-
   /****************************************************************************
    *
    * GridXY Methods
    *
    */
 
-  public static int[] gridXYToTileIJ(double gx, double gy, int zl) {
+  /**
+   *
+   * Tile I/J coordinates containing given grid coordinates.
+   *
+   * Tiles are clipped to the map size, so that 1.0 and 1.1 land on the eastmost
+   * or southmost tile, and 0 or -0.1 land on the westmost or northmost.
+   *
+   * @param grid_x  X (horizontal) grid coordinate, from 0.0 to 1.0
+   * @param grid_y  Y (vertical) grid coordinate, from 0.0 to 1.0
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
+   * @return        { tile_i, tile_j }
+   */
+  public static int[] gridXYToTileIJ(double grid_x, double grid_y, int zl) {
     int      mapsize  = mapTileSize(zl);
-    double   tile_x   = mapsize * gx;
-    double   tile_y   = mapsize * gy;
+    double   tile_x   = mapsize * grid_x;
+    double   tile_y   = mapsize * grid_y;
     //
     return new int[] {
       (int) NumberUtils.snap(Math.floor(tile_x), 0, mapsize-1),
-      (int) NumberUtils.snap(Math.floor(tile_y), 0, mapsize-1) };
+      (int) NumberUtils.snap(Math.floor(tile_y), 0, mapsize-1), zl };
   }
 
   /**
@@ -110,17 +120,17 @@ public final class QuadtileUtils {
    * edge of the map) allowing you to get the right/bottom edge of tile i,j
    * by calling this method on tile i+1,j+1.
    *
-   * @param ti      I index of tile
-   * @param tj      J index of tile
+   * @param tile_i      I index of tile
+   * @param tile_j      J index of tile
    * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
-   * @return        { longitude, latitude }
+   * @return        { grid_x, grid_y }
    */
-  public static double[] tileIJToGridXY(int ti, int tj, int zl) {
+  public static double[] tileIJToGridXY(int tile_i, int tile_j, int zl) {
     int mapsize  = mapTileSize(zl);
-    ti = NumberUtils.snap(ti, 0, mapsize);
-    tj = NumberUtils.snap(tj, 0, mapsize);
+    tile_i = NumberUtils.snap(tile_i, 0, mapsize);
+    tile_j = NumberUtils.snap(tile_j, 0, mapsize);
     //
-    return new double[] { 1.0*ti / mapsize, 1.0*tj / mapsize };
+    return new double[] { 1.0*tile_i / mapsize, 1.0*tile_j / mapsize };
   }
 
   /****************************************************************************
@@ -184,6 +194,93 @@ public final class QuadtileUtils {
     }
   }
 
+  // See http://bitmath.blogspot.com/2012/11/tesseral-arithmetic.html
+  public static long I_BITS = 0x5555555555555555L;
+  public static long J_BITS = 0xAAAAAAAAAAAAAAAAL;
+
+  /** Qmorton to the direct south-east (down-right) of the given qmorton */
+  public static Long qmortonNeighborSE(long qm, int zl) {
+    // See http://bitmath.blogspot.com/2012/11/tesseral-arithmetic.html
+    Long i_part = (((qm | J_BITS) + 1) & I_BITS) % (1 << zl);
+    Long j_part = (((qm | I_BITS) + 2) & J_BITS);
+    return i_part | j_part;
+  }
+
+  /** Qmortons of each chiild tile at one finer zoom level */
+  public static long[] qmortonChildren(long qm) {
+    long cqm = qm << 2;
+    return new long[] { cqm|0, cqm|1, cqm|2, cqm|3 };
+  }
+
+  /**
+   * Qmorton of the ancestor containting that tile at the given zoom level
+   *
+   * @param qmorton
+   * @param zl
+   * @param zl_anc    Zoom level of detail for the ancestor. Must not be finer than the given qmorton's zl
+   * @return qmorton of the specified tile
+   */
+  public static long qmortonAncestor(long qmorton, int zl, int zl_anc) {
+    return qmortonZoomBy(qmorton, zl_anc - zl);
+  }
+
+  /**
+   * Qmorton of the smallest parent tile containing the given tiles. Both
+   * qmortons must refer to tiles at the same zoom level or the result is
+   * meaningless.
+   *
+   * @param qm_1    Morton handle
+   * @param qm_2    Morton handle
+   * @return        morton of smallest tile (highest zoom level) containing both
+   */
+  public static long[] ancestorOf(long qm_1, long qm_2, int zl) throws RuntimeException {
+    for (; zl >= 0;  zl--) {
+      if (qm_1 == qm_2) {
+        long[] qm_zl = { qm_1, zl };
+        return qm_zl;
+      }
+      qm_1 >>>= 2;
+      qm_2 >>>= 2;
+    }
+    throw new RuntimeException("Quadtile Morton indexes out of range: "+qm_1+" or "+qm_2+" have more bits than I can shift.");
+  }
+
+  /**
+   * Morton of the smallest parent tile containing the tiles for given quadstr
+   * string handles. Throws an error if tiles are not at the same zoom level
+   * (result is otherwise meaningless.)
+   *
+   * @param quadstr_1   Quadstr string handle
+   * @param quadstr_2   Quadstr string handle
+   * @return            quadstr of smallest tile (highest zoom level) containing both
+   */
+  public static String ancestorOf(String quadstr_1, String quadstr_2) throws RuntimeException {
+    int  zl_1 = quadstrToZl(quadstr_1),      zl_2 = quadstrToZl(quadstr_2);
+    long qm_1 = quadstrToQmorton(quadstr_1), qm_2 = quadstrToQmorton(quadstr_2);
+    if (zl_1 != zl_2) { throw new IllegalArgumentException("Tiles must be at same zoom level for the result to make sense"); }
+    //
+    long[] qm_zl = ancestorOf(qm_1, qm_2, zl_1);
+    return qmortonToQuadstr(qm_zl[0], (int)qm_zl[1]);
+  }
+
+  /**
+   * iterate over the given indices in both directions, pushing all tiles found into the list
+   */
+  public static void addTilesCoveringIJRect(int ti_min, int tj_min, int ti_max, int tj_max, int zl, List<String> tiles) {
+    for (int tj_q = tj_min; tj_q <= tj_max; tj_q++) {
+      for (int ti_q = ti_min; ti_q <= ti_max; ti_q++) {
+        String quadstr = tileIJToQuadstr(ti_q, tj_q, zl);
+        tiles.add(quadstr);
+      }
+    }
+  }
+
+  /****************************************************************************
+   *
+   * Quadord Methods
+   *
+   */
+
   public static long QUADORD_ZL_MASK = 0x000000000000001fL; // bits 5..1
   public static long QUADORD_QM_MASK = 0x3fffffffffffffc0L; // bits 62..7 ; bits 64, 63 and 6 always 0
 
@@ -215,8 +312,8 @@ public final class QuadtileUtils {
    * @see qmortonZlToQuadord
    */
   public static long quadordToQmorton(long quadord) {
-    int zl = (int)(quadord & QUADORD_ZL_MASK);
-    return quadord >>> (2*zl + 6);
+    long shift = 62L - 2*(quadord & QUADORD_ZL_MASK);
+    return quadord >>> shift;
   }
 
   /**
@@ -242,170 +339,6 @@ public final class QuadtileUtils {
     if (zl_b < zl_a){ return false; }
     long qm_b_prefix = qo_b & (QUADORD_QM_MASK << (2*(zl_b - zl_a)));
     return (qm_b_prefix == (qo_a & QUADORD_QM_MASK));
-  }
-
-    // int zl_o = other.zoomlvl();
-    // // can't contain if it is at coarser zoom level
-    // if (zl_o < zl){ return false; }
-    // // contain if its rightshifted prefix matches mine
-    // long qm_o_prefix = other.qmorton() >>> (2*(zl_o-zl));
-    // return (qm_o_prefix == qm);
-
-  /**
-   * Qmorton of the ancestor containting that tile at the given zoom level
-   *
-   * @param qmorton
-   * @param zl
-   * @param zl_anc    Zoom level of detail for the ancestor. Must not be finer than the given qmorton's zl
-   * @return qmorton of the specified tile
-   */
-  public static long qmortonAncestor(long qmorton, int zl, int zl_anc) {
-    return qmortonZoomBy(qmorton, zl_anc - zl);
-  }
-
-  public static long I_BITS = 0x5555555555555555L;
-  public static long J_BITS = 0xAAAAAAAAAAAAAAAAL;
-
-  // See http://bitmath.blogspot.com/2012/11/tesseral-arithmetic.html
-  //
-
-
-  /** Qmorton to the direct south-east (down-right) of the given qmorton */
-  public static Long qmortonNeighborSE(long qm, int zl) {
-    // See http://bitmath.blogspot.com/2012/11/tesseral-arithmetic.html
-    Long i_part = (((qm | J_BITS) + 1) & I_BITS) % (1 << zl);
-    Long j_part = (((qm | I_BITS) + 2) & J_BITS);
-    return i_part | j_part;
-  }
-
-  /** Qmortons of each chiild tile at one finer zoom level */
-  public static long[] qmortonChildren(long qm) {
-    long cqm = qm << 2;
-    return new long[] { cqm|0, cqm|1, cqm|2, cqm|3 };
-  }
-
-  // /** Qmorton directly left of the given qmorton */
-  // public static Long qmortonNeighborWest(long qm) {
-  //   Long   dec_ibits = (((qm & I_BITS) - 1) & I_BITS) % (1 << zl);
-  //   return dec_ibits |  (qm & J_BITS);
-  // }
-  //
-  // /** Qmorton to the direct right of the given qmorton */
-  // public static Long qmortonNeighborEast(long qm) {
-  //
-  //   return inc_ibits |  (qm & J_BITS);
-  // }
-  //
-  // /** Qmorton directly up of the given qmorton */
-  // public static Long qmortonNeighborNorth(long qm) {
-  //   Long   dec_jbits = ((qm & J_BITS) - 2) & J_BITS;
-  //   if    (dec_jbits < 0) { return null; }
-  //   return dec_jbits |  (qm & I_BITS);
-  // }
-  //
-  // /** Qmorton to the direct down of the given qmorton */
-  // public static Long qmortonNeighborSouth(long qm) {
-  //   Long   inc_jbits = ((qm | I_BITS) + 2) & J_BITS;
-  //   if    (inc_jbits > (2 << zl)) { return null; }
-  //   return inc_jbits |  (qm & I_BITS);
-  // }
-  //
-  // /**
-  //  * Given a tile morton key, returns a 9-element array of keys in the following
-  //  * order, right to left and up to down:
-  //  *
-  //  *     i-1,j-1   i,j-1    i+1,j-1
-  //  *     i-1,j     i,j      i+1,j
-  //  *     i-1,j+1   i,j+1    i+1,j+1
-  //  *
-  //  * Wherever a tile would be off the map in i, it wraps to the other
-  //  * side. Wherever a tile would be off the map in **j**, a null value appears
-  //  * in place of the pair.  See neighborsList if you only want the neighbors
-  //  * that exist.
-  //  */
-  // public static Long[] qmortonNeighborhood(long qm, int zl) {
-  //   Long lf     = qmortonNeighborWest(qm, zl);
-  //   Long rt     = qmortonNeighborEast(qm, zl);
-  //   //
-  //   Long[] nbrs = {
-  //     qmortonNeighborNorth(lf,zl), qmortonNeighborNorth(qm,zl), qmortonNeighborNorth(rt,zl),
-  //     lf,                          qm,                          rt,
-  //     qmortonNeighborSouth(lf,zl), qmortonNeighborSouth(qm,zl), qmortonNeighborSouth(rt,zl)
-  //   };
-  //   return nbrs;
-  // }
-  //
-  // /**
-  //  * Returns a list, in arbitrary order, of the qmortons for the given tile and
-  //  * all its eight neighbors.
-  //  *
-  //  * Most tiles have 9 neighbors.  However, qmortons for tiles off the map are
-  //  * not in the list; so a tjpical tile on the anti-meridian has only 6
-  //  * neighbors, and there's four lonely spots in the artic and antarctic with
-  //  * only four neighbors.
-  //  */
-  // public static List<Long> qmortonNeighborhoodList(long qm, int zl) {
-  //   List<Long> result = new ArrayList<Long>(9);
-  //
-  //   Long[] nbrs = qmortonNeighborhood(qm, zl);
-  //   for (int idx = 0; idx < 9; idx++) {
-  //     if (nbrs[idx] != null) {
-  //       result.add(nbrs[idx]);
-  //     }
-  //   }
-  //   return result;
-  // }
-
-  /**
-   * Qmorton of the smallest parent tile containing the given tiles. Both
-   * qmortons must refer to tiles at the same zoom level or the result is
-   * meaningless.
-   *
-   * @param qm_1    Morton handle
-   * @param qm_2    Morton handle
-   * @return        morton of smallest tile (highest zoom level) containing both
-   */
-  public static long[] smallestContaining(long qm_1, long qm_2, int zl) throws RuntimeException {
-    for (; zl >= 0;  zl--) {
-      if (qm_1 == qm_2) {
-        long[] qm_zl = { qm_1, zl };
-        return qm_zl;
-      }
-      qm_1 >>>= 2;
-      qm_2 >>>= 2;
-    }
-    throw new RuntimeException("Quadtile Morton indexes out of range: "+qm_1+" or "+qm_2+" have more bits than I can shift.");
-  }
-
-  /**
-   * Morton of the smallest parent tile containing the tiles for given quadstr
-   * string handles. Throws an error if tiles are not at the same zoom level
-   * (result is otherwise meaningless.)
-   *
-   * @param quadstr_1   Quadstr string handle
-   * @param quadstr_2   Quadstr string handle
-   * @return            quadstr of smallest tile (highest zoom level) containing both
-   */
-  public static String smallestContaining(String quadstr_1, String quadstr_2) throws RuntimeException {
-    int  zl_1 = quadstrToZl(quadstr_1),      zl_2 = quadstrToZl(quadstr_2);
-    long qm_1 = quadstrToQmorton(quadstr_1), qm_2 = quadstrToQmorton(quadstr_2);
-    if (zl_1 != zl_2) { throw new IllegalArgumentException("Tiles must be at same zoom level for the result to make sense"); }
-    //
-    long[] qm_zl = smallestContaining(qm_1, qm_2, zl_1);
-    String res = qmortonToQuadstr(qm_zl[0], (int)qm_zl[1]);
-    return res;
-  }
-
-  /**
-   * iterate over the given indices in both directions, pushing all tiles found into the list
-   */
-  public static void addTilesCoveringIJRect(int ti_min, int tj_min, int ti_max, int tj_max, int zl, List<String> tiles) {
-    for (int tj_q = tj_min; tj_q <= tj_max; tj_q++) {
-      for (int ti_q = ti_min; ti_q <= ti_max; ti_q++) {
-        String quadstr = tileIJToQuadstr(ti_q, tj_q, zl);
-        tiles.add(quadstr);
-      }
-    }
   }
 
   /****************************************************************************
@@ -444,8 +377,8 @@ public final class QuadtileUtils {
    * Quadstr string handle (base-4 representation of the qmorton) for the given
    * tile i/j indices and zoom level
    */
-  public static String tileIJToQuadstr(int ti, int tj, int zl) {
-    long qmorton = tileIJToQmorton(ti, tj);
+  public static String tileIJToQuadstr(int tile_i, int tile_j, int zl) {
+    long qmorton = tileIJToQmorton(tile_i, tile_j);
     return qmortonToQuadstr(qmorton, zl);
   }
 
@@ -498,7 +431,6 @@ public final class QuadtileUtils {
    */
   public static int[] worldToTileIJ(double lng, double lat, int zl, Projection proj) {
     double[] grid_xy = proj.lngLatToGridXY(lng, lat);
-    // grid_xy[1] += (EDGE_FUDGE/(1<<zl));  // See note above EDGE_FUDGE
     return gridXYToTileIJ(grid_xy[0], grid_xy[1], zl);
   }
 
@@ -508,16 +440,16 @@ public final class QuadtileUtils {
    *
    * We allow this to be called with tile index = mapsize, i.e. the index of a
    * hypothetical tile hanging off the right or bottom edge of the map, so that
-   * you can call this function on ti+1 or tj+1 to get the right/bottom edge of
-   * a tile.
+   * you can call this function on tile_i+1 or tile_j+1 to get the right/bottom
+   * edge of a tile.
    *
-   * @param ti      I index of tile
-   * @param tj      J index of tile
+   * @param tile_i  I index of tile
+   * @param tile_j  J index of tile
    * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
    * @return        { longitude, latitude }
    */
-  public static double[] tileIJToWorld(int ti, int tj, int zl, Projection proj) {
-    double[] grid_xy = tileIJToGridXY(ti, tj, zl);
+  public static double[] tileIJToWorld(int tile_i, int tile_j, int zl, Projection proj) {
+    double[] grid_xy = tileIJToGridXY(tile_i, tile_j, zl);
     return proj.gridXYToLngLat(grid_xy[0], grid_xy[1]);
   }
 
@@ -550,10 +482,22 @@ public final class QuadtileUtils {
     return tileIJToWorld(tile_ij[0], tile_ij[1], zl, proj);
   }
 
+  /**
+   *
+   * This method nudges the southeast corner towards the northeast corner by a
+   * small amount (1e-9, and only if the envelope is larger than that). Since
+   * coordinates on the boundary of a tile are interpreted as belonging to the
+   * north or west edge of a tile, this ensures that calling qmortonToWorldWSEN
+   * and wsenToQmortonZl will round-trip.
+   *
+   */
   public static long[] wsenToQmortonZl(double west, double south, double east, double north, Projection proj) {
     long qm_nw = worldToQmorton(west, north, MAX_ZOOM_LEVEL, proj);
+    // Cheat the southeast corner onto the tile
+    if (east  - west  > 1e-9) { east  -= 1e-9; }
+    if (north - south > 1e-9) { south += 1e-9; }
     long qm_se = worldToQmorton(east, south, MAX_ZOOM_LEVEL, proj);
-    return smallestContaining(qm_nw, qm_se, MAX_ZOOM_LEVEL);
+    return ancestorOf(qm_nw, qm_se, MAX_ZOOM_LEVEL);
   }
 
   /**
@@ -577,14 +521,14 @@ public final class QuadtileUtils {
    *
    *   minimum longitude, minimum latitude, maximum longitude, maximum latitude
    *
-   * @param ti      I index of tile
-   * @param tj      J index of tile
+   * @param tile_i  I index of tile
+   * @param tile_j  J index of tile
    * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
    * @return        [west, south, east, north]
    */
-  public static double[] tileIJToWorldWSEN(int ti, int tj, int zl, Projection proj) {
-    double[] nw_corner = tileIJToWorld(ti,   tj,   zl, proj);
-    double[] se_corner = tileIJToWorld(ti+1, tj+1, zl, proj);
+  public static double[] tileIJToWorldWSEN(int tile_i, int tile_j, int zl, Projection proj) {
+    double[] nw_corner = tileIJToWorld(tile_i,   tile_j,   zl, proj);
+    double[] se_corner = tileIJToWorld(tile_i+1, tile_j+1, zl, proj);
     //
     // [west south east north]​ -- [min_x, min_y, max_x, max_y]
     return new double[] { nw_corner[0], se_corner[1], se_corner[0], nw_corner[1] };

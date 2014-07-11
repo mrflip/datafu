@@ -66,7 +66,7 @@ public class GeoJoin  extends SimpleEvalFunc<DataBag> {
     public QuadtileCarrier(long _quadord, OGCGeometry geometry, Projection projection) {
       super(_quadord, projection);
       this.geom = geometry;
-    }    
+    }
   }
 
   // /**

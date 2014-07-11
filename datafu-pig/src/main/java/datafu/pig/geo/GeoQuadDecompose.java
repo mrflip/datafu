@@ -140,8 +140,8 @@ public class GeoQuadDecompose extends SimpleEvalFunc<DataBag>
       super.add(geom);
       int item_idx = this.size()-1;
       int iter_key = quadtree.insert(item_idx, GeometryUtils.getEnvelope2D(geom));
-      GeometryUtils.dump("%d %d %d %d %s",
-        item_idx, iter_key, quadtree.getQuad(iter_key), quadtree.getElement(iter_key), geom);
+      // GeometryUtils.dump("%d %d %d %d %s",
+      //   item_idx, iter_key, quadtree.getQuad(iter_key), quadtree.getElement(iter_key), geom);
       return true;
     }
 
@@ -162,8 +162,8 @@ public class GeoQuadDecompose extends SimpleEvalFunc<DataBag>
         int item_idx = quadtree.getElement(iter_key);
         OGCGeometry geom = geoms.get(item_idx);
         result.add(geom);
-        GeometryUtils.dump("%d %d %d %d %s %s",
-          item_idx, iter_key, quadtree.getQuad(iter_key), quadtree.getElement(iter_key), geom, q_geom);
+        // GeometryUtils.dump("%d %d %d %d %s %s",
+        //   item_idx, iter_key, quadtree.getQuad(iter_key), quadtree.getElement(iter_key), geom, q_geom);
         iter_key = quaditer.next();
       }
       return result;

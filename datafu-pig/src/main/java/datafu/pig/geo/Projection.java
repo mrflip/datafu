@@ -32,7 +32,6 @@ abstract public class Projection
   abstract public double[] lngLatToGridXY(double lng, double lat);
   abstract public double[] gridXYToLngLat(double grid_x, double grid_y);
 
-
   /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    *
    * Projections
@@ -83,17 +82,17 @@ abstract public class Projection
   }
 
   abstract public static class GlobeProjection extends Projection {
-    public final double min_lng;
-    public final double max_lng;
-    public final double min_lat;
-    public final double max_lat;
-    public final double globe_radius;
+    public final double   min_lng;
+    public final double   max_lng;
+    public final double   min_lat;
+    public final double   max_lat;
+    public final double   globe_radius;
 
     public GlobeProjection(double min_lng, double min_lat, double max_lng, double max_lat, double globe_radius){
-      this.min_lng = min_lng;
-      this.min_lat = min_lat;
-      this.max_lng = max_lng;
-      this.max_lat = max_lat;
+      this.min_lng      = min_lng;
+      this.min_lat      = min_lat;
+      this.max_lng      = max_lng;
+      this.max_lat      = max_lat;
       this.globe_radius = globe_radius;
     }
 
@@ -230,11 +229,11 @@ abstract public class Projection
 
 
   public static class Equirectangular extends GlobeProjection {
-    public static final double DEFAULT_MIN_LNG      =  -180.0;
-    public static final double DEFAULT_MAX_LNG      =   180.0;
-    public static final double DEFAULT_MIN_LAT      =  -90.0;
-    public static final double DEFAULT_MAX_LAT      =   90.0;
-    public static final double DEFAULT_GLOBE_RADIUS = 6378137.0;
+    public static final double   DEFAULT_MIN_LNG      =    -180.0;
+    public static final double   DEFAULT_MAX_LNG      =     180.0;
+    public static final double   DEFAULT_MIN_LAT      =     -90.0;
+    public static final double   DEFAULT_MAX_LAT      =      90.0;
+    public static final double   DEFAULT_GLOBE_RADIUS = 6378137.0;
 
     public Equirectangular(){
       super(DEFAULT_MIN_LNG, DEFAULT_MIN_LAT, DEFAULT_MAX_LNG, DEFAULT_MAX_LAT, DEFAULT_GLOBE_RADIUS);
@@ -290,30 +289,33 @@ abstract public class Projection
    * library simply partitions longitude and latitude uniformly.
    */
   public static class Mercator extends GlobeProjection {
-    public static final double DEFAULT_MIN_LNG      =  -180.0;
-    public static final double DEFAULT_MAX_LNG      =   180.0;
-    public static final double DEFAULT_MIN_LAT      =  -85.05112878; // Math.atan(Math.sinh(Math.PI))*180/Math.PI; //
-    public static final double DEFAULT_MAX_LAT      =   85.05112878;
+    public static final double DEFAULT_MIN_LNG      =    -180.0;
+    public static final double DEFAULT_MAX_LNG      =     180.0;
+    public static final double DEFAULT_MIN_LAT      =     -85.05112878; // Math.atan(Math.sinh(Math.PI))*180/Math.PI; //
+    public static final double DEFAULT_MAX_LAT      =      85.05112878;
     public static final double DEFAULT_GLOBE_RADIUS = 6378137.0;
 
-
-  // The arctan/log/tan/sinh business gives slight loss of precision. We could
-  // live with that on the whole, but it can push the boundary of a tile onto
-  // the one above it so lnglatToTileIJ(tileIJToLnglat(foo)) != foo. Adding
-  // this 1-part-per-billion fudge stabilized things; with this, no edge will
-  // ever dance across tiles. Each of the following equivalents to the code
-  // here or in tileIJToLnglat work, and none performed better.
-  //
-  // double lat_rad = Math.toRadians(lat);           // OSM version
-  // double tj2     = mapsize * (1 - Math.log( Math.tan(lat_rad)  + (1/Math.cos(lat_rad)) )/Math.PI) / 2.0;
-  // double sin_lat = Math.sin(lat * Math.PI / 180); // Bing version
-  // double tj3     = mapsize * (0.5 - Math.log((1 + sin_lat) / (1 - sin_lat)) / (4 * Math.PI));
-  // double lat2    = 180/Math.PI*Math.atan(Math.sinh(Math.PI * (1 - 2.0*tj/mapsize)));
-  //
+    /**
+     * The arctan/log/tan/sinh business gives slight loss of precision. We could
+     * live with that on the whole, but it can push the boundary of a tile onto
+     * the one above it so lnglatToTileIJ(tileIJToLnglat(foo)) != foo. Adding
+     * this 1-part-per-billion fudge stabilized things; with this, no edge will
+     * ever dance across tiles. Each of the following equivalents to the code
+     * here or in tileIJToLnglat work, and none performed better.
+     *
+     * double lat_rad = Math.toRadians(lat);           // OSM version
+     * double tj2     = mapsize * (1 - Math.log( Math.tan(lat_rad)  + (1/Math.cos(lat_rad)) )/Math.PI) / 2.0;
+     * double sin_lat = Math.sin(lat * Math.PI / 180); // Bing version
+     * double tj3     = mapsize * (0.5 - Math.log((1 + sin_lat) / (1 - sin_lat)) / (4 * Math.PI));
+     * double lat2    = 180/Math.PI*Math.atan(Math.sinh(Math.PI * (1 - 2.0*tj/mapsize)));
+     */
+    public static final double[] DEFAULT_EDGE_FUDGE = { 0.0, -1e-10 };
 
     public Mercator(){
       super(DEFAULT_MIN_LNG, DEFAULT_MIN_LAT, DEFAULT_MAX_LNG, DEFAULT_MAX_LAT, DEFAULT_GLOBE_RADIUS);
     }
+
+    public double[] edgeFudge() { return DEFAULT_EDGE_FUDGE; }
 
     /**
      * Projected grid coordinates for the given longitude / latitude pair.
@@ -325,6 +327,10 @@ abstract public class Projection
      */
     public double[] lngLatToGridXY(double lng, double lat) {
       assert lng <= 180 && lng >= -180 && lat <= 90 && lat >= -90;
+      // prevent numerical error from pushing a tile boundary off its tile
+      lng += edgeFudge()[0];
+      lat += edgeFudge()[1];
+      //
       lng = NumberUtils.snap(lng,  min_lng,  max_lng);
       lat = NumberUtils.snap(lat,  min_lat,  max_lat);
       //
