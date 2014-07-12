@@ -86,7 +86,7 @@ public class GeoMinCoord extends GeoScalarFunc<Double> {
   class MinZHandler implements MinHandler {
     public Double handle(OGCGeometry geom) {
       if (! geom.is3D()) {
-        // log(GeoExceptions.Not3DException.printable(geom));
+        // log.warn(GeoExceptions.Not3DException.printable(geom));
         return null;
       }
       return geom.MinZ();
@@ -96,7 +96,7 @@ public class GeoMinCoord extends GeoScalarFunc<Double> {
   class MinMHandler implements MinHandler {
     public Double handle(OGCGeometry geom) {
       if (! geom.isMeasured()) {
-        // log(GeoExceptions.NotMeasuredException.printable(geom));
+        // log.warn(GeoExceptions.NotMeasuredException.printable(geom));
         return null;
       }
       return geom.MinMeasure();

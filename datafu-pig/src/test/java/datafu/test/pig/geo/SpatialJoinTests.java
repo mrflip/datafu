@@ -69,17 +69,30 @@ public class SpatialJoinTests extends PigTests
   public final static Projection.Linear proj_1280 = new Projection.Linear(1280);
 
   public final static String[] EXAMPLE_SHAPES = {
-    "POLYGON (( 10 10, 10  90,  95  90,  95 10, 10 10 ))",
-    "POLYGON (( 40 40, 40 120, 120 120, 120 40, 40 40 ))",
-    "POLYGON (( 41 40, 41 120, 121 120, 121 40, 41 40 ))",
-    "POLYGON (( 40 40, 78 120, 120 120, 120 40, 40 40 ))",
+    "POLYGON (( 10 10, 10  90,  95  90,  95 10, 10 10 ))\tcpw55     ", // rectangle 10 10 /  95  90
+    "POLYGON (( 40 40, 40 120, 120 120, 120 40, 40 40 ))\tmeketrex  ", // rectangle 40 40 / 120 120
+    "POLYGON (( 41 40, 41 120, 121 120, 121 40, 41 40 ))\tnypl      ", // rectangle 41 40 / 121 120 (shifted right 1 unit)
+    "POLYGON (( 40 40, 78 120, 120 120, 120 40, 40 40 ))\tvuldronaii", // rectangle 40 40 / 120 120 with notch cut out of west side
   };
 
   public final static String[] EXAMPLE_POINTS = {
-    "POINT( 40 40 )", // not in #3
-    "POINT( 48 42 )", // in all
-    "POINT( 3   3 )", // in none
-    "POINT( 42 50 )", // in the bbox of all, but not actually in #4
+    "POINT( 40 40 )\tclortho ", // not in #nypl
+    "POINT( 48 42 )\tgozer   ", // in all
+    "POINT( 3   3 )\tnotdana ", // in none
+    "POINT( 42 50 )\tonlyzuul", // in the bbox of all, but not actually in #vuldronaii
+  };
+
+  public final static String[] EVEN_MORE_POINTS = {
+    "POINT( 40 40 )\tclortho  ", // not in envelope of #3, but in tile
+    "POINT( 48 42 )\tgozer    ", // in all
+    "POINT( 3   3 )\tnotdana  ", // in none
+    "POINT( 42 50 )\tonlyzuul ", // not actually in #vuldronaii, but in the envelope and tile set of all
+    "POINT( 42 70 )\tspengler ", // not actually in #vuldronaii or its tiles, but in the envelope of all 
+    "POINT( 83 105)\tstantz   ", // meketrex, nypl, vuldronaii
+    "POINT( 71 62 )\tstaypuft ", // in all
+    "POINT( 21 82 )\ttully    ", // #1 only
+    "POINT( 11 20 )\tvenkman  ", // #1 only
+    "POINT( 60 110)\tzeddemore"  // #2, #3 only 
   };
 
 
@@ -141,7 +154,7 @@ public class SpatialJoinTests extends PigTests
     DataBag qt_bag;
     //
     for (int idx = 0; idx < EXAMPLE_SHAPES.length; idx++) {
-      OGCGeometry test_shape = OGCGeometry.fromText(EXAMPLE_SHAPES[idx]);
+      OGCGeometry test_shape = OGCGeometry.fromText(EXAMPLE_SHAPES[idx].replaceFirst("\t.*",""));
       //
       qt_bag = Quadtile.decompose(test_shape, 4, 7, proj_1280);
       List<Quadtile> qt_list = quadtilesFromResultBag(qt_bag); // Collections.sort(qt_list, new Quadtile.ZorderComparator()); for (Quadtile qt: qt_list) { GeometryUtils.dump("%s %3d %3d", qt, qt.zoomedTileIJ(7)[0], qt.zoomedTileIJ(7)[1]); } ; GeometryUtils.dump("");
@@ -152,10 +165,71 @@ public class SpatialJoinTests extends PigTests
 
   /**
      DEFINE GeoQuadDecompose datafu.pig.geo.GeoQuadDecompose();
+     DEFINE GeoJoin          datafu.pig.geo.GeoJoin();
      DEFINE ToQuadstr        datafu.pig.geo.QuadtileHandle('quadord', 'quadstr');
      DEFINE ToQkZl           datafu.pig.geo.QuadtileHandle('quadord', 'qmorton_zl');
      --
-     feats     = LOAD 'input_shapes' as (feat:chararray);
+     shapes     = LOAD 'input_shapes' as (feat:chararray, id:chararray);
+     points     = LOAD 'input_points' as (feat:chararray, id:chararray);
+     --
+     q_shapes  = FOREACH shapes GENERATE FLATTEN(GeoQuadDecompose(feat, 4, 7)), 0, id;
+     q_points  = FOREACH points GENERATE FLATTEN(GeoQuadDecompose(feat, 4, 7)), 1, id;
+     joinable  = UNION q_shapes, q_points;
+     DESCRIBE joinable;
+
+     joined = FOREACH (GROUP joinable BY partkey) {
+       j_o = ORDER joinable BY quadord, table_idx;
+       GENERATE group AS partkey, FLATTEN(GeoJoin(j_o));
+     };
+     
+     STORE joined INTO 'output';
+  */
+  @Multiline
+  private String geoJoinTest;
+
+  @Test
+  public void geoJoinTest() throws Exception
+  {
+    PigTest test = createPigTestFromString(geoJoinTest);
+    this.writeLinesToFile("input_shapes", EXAMPLE_SHAPES);
+    this.writeLinesToFile("input_points", EVEN_MORE_POINTS);
+    test.runScript();
+    assertOutput(test, "joined",
+      "(0,cpw55     ,venkman  ,MULTIPOLYGON (((10 20, 20 20, 20 30, 10 30, 10 20))),POINT (11 20))",
+      "(3,meketrex  ,clortho  ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (40 40))",
+      "(3,cpw55     ,clortho  ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (40 40))",
+      "(3,vuldronaii,clortho  ,MULTIPOLYGON (((40 40, 50 40, 50 50, 44.75 50, 40 40))),POINT (40 40))",
+      "(3,nypl      ,clortho  ,MULTIPOLYGON (((41 40, 50 40, 50 50, 41 50, 41 40))),POINT (40 40))",
+      "(3,meketrex  ,gozer    ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (48 42))",
+      "(3,cpw55     ,gozer    ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (48 42))",
+      "(3,vuldronaii,gozer    ,MULTIPOLYGON (((40 40, 50 40, 50 50, 44.75 50, 40 40))),POINT (48 42))",
+      "(3,nypl      ,gozer    ,MULTIPOLYGON (((41 40, 50 40, 50 50, 41 50, 41 40))),POINT (48 42))",
+      "(3,meketrex  ,onlyzuul ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (42 50))",
+      "(3,cpw55     ,onlyzuul ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (42 50))",
+      "(3,nypl      ,onlyzuul ,MULTIPOLYGON (((41 50, 50 50, 50 60, 41 60, 41 50))),POINT (42 50))",
+      "(3,vuldronaii,onlyzuul ,MULTIPOLYGON (((44.75 50, 50 50, 50 60, 49.5 60, 44.75 50))),POINT (42 50))",
+      "(3,meketrex  ,spengler ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (42 70))",
+      "(3,cpw55     ,spengler ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (42 70))",
+      "(3,nypl      ,spengler ,MULTIPOLYGON (((41 70, 50 70, 50 80, 41 80, 41 70))),POINT (42 70))",
+      "(3,meketrex  ,staypuft ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (71 62))",
+      "(3,cpw55     ,staypuft ,MULTIPOLYGON (((40 40, 80 40, 80 80, 40 80, 40 40))),POINT (71 62))",
+      "(3,vuldronaii,staypuft ,MULTIPOLYGON (((60 60, 80 60, 80 80, 60 80, 60 60))),POINT (71 62))",
+      "(3,nypl      ,staypuft ,MULTIPOLYGON (((60 60, 80 60, 80 80, 60 80, 60 60))),POINT (71 62))",
+      "(8,cpw55     ,tully    ,MULTIPOLYGON (((20 80, 30 80, 30 90, 20 90, 20 80))),POINT (21 82))",
+      "(9,meketrex  ,zeddemore,MULTIPOLYGON (((40 80, 80 80, 80 120, 40 120, 40 80))),POINT (60 110))",
+      "(9,nypl      ,zeddemore,MULTIPOLYGON (((60 100, 80 100, 80 120, 60 120, 60 100))),POINT (60 110))",
+      "(12,vuldronaii,stantz   ,MULTIPOLYGON (((80 80, 120 80, 120 120, 80 120, 80 80))),POINT (83 105))",
+      "(12,nypl      ,stantz   ,MULTIPOLYGON (((80 80, 120 80, 120 120, 80 120, 80 80))),POINT (83 105))",
+      "(12,meketrex  ,stantz   ,MULTIPOLYGON (((80 80, 120 80, 120 120, 80 120, 80 80))),POINT (83 105))");
+  }
+
+  
+  /**
+     DEFINE GeoQuadDecompose datafu.pig.geo.GeoQuadDecompose();
+     DEFINE ToQuadstr        datafu.pig.geo.QuadtileHandle('quadord', 'quadstr');
+     DEFINE ToQkZl           datafu.pig.geo.QuadtileHandle('quadord', 'qmorton_zl');
+     --
+     feats     = LOAD 'input_shapes' as (feat:chararray, id:chararray);
      --
      decomp    = FOREACH feats {
        quad_geoms = GeoQuadDecompose(feat, 4, 7);
@@ -172,7 +246,7 @@ public class SpatialJoinTests extends PigTests
   */
   @Multiline
   private String quadDecompTest;
-
+  
   @Test
   public void quadDecompTest() throws Exception
   {
@@ -185,7 +259,7 @@ public class SpatialJoinTests extends PigTests
       "({(0000300),(0000301),(0000302),(0000303),(000031),(0000320),(0000321),(0000322),(0000323),(000033),(00012),(0001300),(0001302),(0001320),(0001322),(0002100),(0002101),(0002102),(0002103),(000211),(0002120),(0002121),(0002122),(0002123),(000213),(00030),(0003100),(0003102),(0003120),(0003122)})",
       "({(0000300),(0000301),(0000302),(0000303),(000031),(0000320),(0000321),(0000323),(000033),(00012),(0002101),(0002110),(0002111),(0002112),(0002113),(0002130),(0002131),(0002133),(00030)})");
   }
-
+  
   /**
      DEFINE ToQkZl        datafu.pig.geo.QuadtileHandle('quadstr',     'qmorton_zl');
      DEFINE ToQuadstr     datafu.pig.geo.QuadtileHandle('quadstr',     'quadstr');
@@ -236,7 +310,7 @@ public class SpatialJoinTests extends PigTests
   */
   @Multiline
   private String quadHandleTest;
-
+  
   @Test
   public void quadHandleTest() throws Exception
   {
@@ -273,14 +347,14 @@ public class SpatialJoinTests extends PigTests
       "((0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),0123012301230123012301230123)",
       "((3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),3333333333333333333333333333)");
   }
-
+  
   @Test
   public void sortingQuadtileTest() throws Exception
   {
     List<Quadtile> qt_list, comp_1_list, comp_2_list;
-
+  
     for (int idx = 0; idx < EXAMPLE_SHAPES.length; idx++) {
-      String test_shape = EXAMPLE_SHAPES[idx];
+      String test_shape = EXAMPLE_SHAPES[idx].replaceFirst("\t.*","");
       //
       DataBag qt_bag = Quadtile.decompose(
         OGCGeometry.fromText(test_shape), 4, 7, proj_1280);
@@ -294,12 +368,11 @@ public class SpatialJoinTests extends PigTests
       Assert.assertEquals(qt_list, comp_1_list);
     }
   }
-
-
+  
   /**
   DEFINE GeoQuadtreeJoin datafu.pig.geo.GeoQuadtreeJoin();
-  feats_a   = LOAD 'input_shapes' as (feat:chararray);
-  feats_b   = LOAD 'input_points' as (feat:chararray);
+  feats_a   = LOAD 'input_shapes' as (feat:chararray, id:chararray);
+  feats_b   = LOAD 'input_points' as (feat:chararray, id:chararray);
   all_feats = COGROUP feats_a ALL, feats_b ALL;
   --
   joined = FOREACH all_feats {
@@ -310,7 +383,7 @@ public class SpatialJoinTests extends PigTests
    */
   @Multiline
   private String geoQuadtreeJoinTest;
-
+  
   @Test
   public void geoQuadtreeJoinTest() throws Exception
   {
@@ -360,7 +433,7 @@ public class SpatialJoinTests extends PigTests
     List<Quadtile> qt_list = new ArrayList<Quadtile>();
     for (Tuple qo_pl_tup: qt_bag) {
       try {
-        Long quadord = (Long)qo_pl_tup.get(0);
+        Long quadord = (Long)qo_pl_tup.get(1);
         Quadtile qt = new Quadtile(quadord, proj_1280);
         qt_list.add(qt);
       } catch (Exception err) { throw new RuntimeException(err); }

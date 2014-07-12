@@ -57,15 +57,17 @@ public class GeoJoin  extends SimpleEvalFunc<DataBag> {
   public static final Projection.GlobeProjection MERCATOR = new Projection.Mercator();
 
   public GeoJoin() {
-    this.stacks = new SweepStack[] { new SweepStack(), new SweepStack() };
+    this.stacks = new SweepStack[] { new SweepStack(0), new SweepStack(1) };
     this.tuple_factory = TupleFactory.getInstance();
   }
 
   public static class QuadtileCarrier extends Quadtile {
     public OGCGeometry geom;
-    public QuadtileCarrier(long _quadord, OGCGeometry geometry, Projection projection) {
+    public String      item_id;
+    public QuadtileCarrier(long _quadord, String _item_id, OGCGeometry geometry, Projection projection) {
       super(_quadord, projection);
-      this.geom = geometry;
+      this.geom    = geometry;
+      this.item_id = _item_id;
     }
   }
 
@@ -78,25 +80,24 @@ public class GeoJoin  extends SimpleEvalFunc<DataBag> {
 
 
   public static class SweepStack extends ArrayDeque<QuadtileCarrier> {
+    public int table_idx;
+
+    public SweepStack(int tidx) {
+      this.table_idx = tidx;
+    }
+    //
     /** remove all irrelevant tiles from the stack */
     protected void flush(QuadtileCarrier quadcar) {
-      long   t_quadord = quadcar.quadord();
+      long   new_quadord = quadcar.quadord();
       while (! isEmpty()) {
-        QuadtileCarrier elt = removeLast();
-        if (QuadtileUtils.quadordAContainsB(elt.quadord(), t_quadord)) {
-          addLast(elt);
+        QuadtileCarrier old = removeLast();
+        if (QuadtileUtils.quadordAContainsB(old.quadord(), new_quadord)) {
+          addLast(old); // put it back quick before mom notices
           break;
-        }
+          // } else { GeometryUtils.dump("%-12s %2d %-10s | %-28s", "del", table_idx, old.item_id, old.quadstr());
+        }          
       }
     }
-  }
-
-  public Tuple joinedTuple(OGCGeometry... geoms) {
-    Tuple result_tup = tuple_factory.newTuple();
-    for (OGCGeometry geom: geoms) {
-      result_tup.append(GeometryUtils.pigPayload(geom));
-    }
-    return result_tup;
   }
 
   /**
@@ -119,22 +120,37 @@ public class GeoJoin  extends SimpleEvalFunc<DataBag> {
    *
    */
   public void sweepAndMatch(DataBag result_bag, QuadtileCarrier new_elt, int table_idx) {
+    // GeometryUtils.dump("%-12s %2d %-10s | %-28s | %3d / %3d items", "", table_idx, new_elt.item_id, new_elt.quadstr(),  stacks[0].size(), stacks[1].size());
     // Remove irrelevant items
     for (SweepStack stack: stacks) {
       stack.flush(new_elt);
     }
     // save new item
     stacks[table_idx].addLast(new_elt);
+    //
     // pair new item with all others
     if (table_idx == 0) {
       for (QuadtileCarrier other_elt: stacks[1]) {
-        result_bag.add( joinedTuple(new_elt.geom, other_elt.geom) );
+        // GeometryUtils.dump("%-12s %2d %-10s | %-28s | %-10s | %-28s", "pairing", table_idx, new_elt.item_id, new_elt.quadstr(), other_elt.item_id, other_elt.quadstr());
+        result_bag.add( joinedTuple(new_elt, other_elt) );
       }
     } else {
       for (QuadtileCarrier other_elt: stacks[0]) {
-        result_bag.add( joinedTuple(other_elt.geom, new_elt.geom) );
+        result_bag.add( joinedTuple(other_elt, new_elt) );
+        // GeometryUtils.dump("%-12s %2d %-10s | %-28s | %-10s | %-28s", "paired", table_idx, new_elt.item_id, new_elt.quadstr(), other_elt.item_id, other_elt.quadstr());
       }
     }
+  }
+
+  public Tuple joinedTuple(QuadtileCarrier... quadcars) {
+    Tuple result_tup = tuple_factory.newTuple();
+    for (QuadtileCarrier quadcar: quadcars) {
+      result_tup.append(quadcar.item_id);
+    }
+    for (QuadtileCarrier quadcar: quadcars) {
+      result_tup.append(GeometryUtils.pigPayload(quadcar.geom));
+    }
+    return result_tup;
   }
 
   /**
@@ -146,12 +162,14 @@ public class GeoJoin  extends SimpleEvalFunc<DataBag> {
     try {
       //
       for (Tuple payload_tup: tile_tbl_geoms) {
-        Long    quadord   = (Long)payload_tup.get(0);
-        Integer table_idx = (Integer)payload_tup.get(1);
+        Long    partkey   = (Long)payload_tup.get(0);
+        Long    quadord   = (Long)payload_tup.get(1);
         String  payload   = (String)payload_tup.get(2);
+        Integer table_idx = (Integer)payload_tup.get(3);
+        String  item_id   = (String)payload_tup.get(4);
         OGCGeometry geom  = GeometryUtils.payloadToGeom(payload);
         if (geom == null){ continue; }
-        QuadtileCarrier quadcar = new QuadtileCarrier(quadord, geom, MERCATOR);
+        QuadtileCarrier quadcar = new QuadtileCarrier(quadord, item_id, geom, MERCATOR);
         //
         sweepAndMatch(result_bag, quadcar, table_idx);
       }
@@ -171,6 +189,8 @@ public class GeoJoin  extends SimpleEvalFunc<DataBag> {
     Schema result_tuple_schema = new Schema();
     try {
       String bag_name  = CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, opName());
+      result_tuple_schema.add(new Schema.FieldSchema("id_a",   DataType.CHARARRAY));
+      result_tuple_schema.add(new Schema.FieldSchema("id_b",   DataType.CHARARRAY));
       result_tuple_schema.add(new Schema.FieldSchema("geom_a", DataType.CHARARRAY));
       result_tuple_schema.add(new Schema.FieldSchema("geom_b", DataType.CHARARRAY));
       return new Schema(new Schema.FieldSchema(

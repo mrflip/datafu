@@ -143,12 +143,12 @@ public final class QuadtileUtils {
    * Morton handle (z-order index) of tile with given tile i/j indices.
    */
   public static long tileIJToQmorton(int ti, int tj) {
-    // convert it 8 bits a piece: x evens, y odds. ">>>" means logical bit shift.
+    // convert it 8 bits a piece: x evens, y odds.
     long qm =
-      QMORTON_LUT[ ti         & 0xff]       | QMORTON_LUT[ tj         & 0xff] << 1  |
-      QMORTON_LUT[(ti >>>  8) & 0xff] << 16 | QMORTON_LUT[(tj >>>  8) & 0xff] << 17 |
-      QMORTON_LUT[(ti >>> 16) & 0xff] << 32 | QMORTON_LUT[(tj >>> 16) & 0xff] << 33 |
-      QMORTON_LUT[(ti >>> 24) & 0xff] << 48 | QMORTON_LUT[(tj >>> 24) & 0xff] << 49 ;
+      QMORTON_LUT[ ti        & 0xff]       | QMORTON_LUT[ tj        & 0xff] << 1  |
+      QMORTON_LUT[(ti >>  8) & 0xff] << 16 | QMORTON_LUT[(tj >>  8) & 0xff] << 17 |
+      QMORTON_LUT[(ti >> 16) & 0xff] << 32 | QMORTON_LUT[(tj >> 16) & 0xff] << 33 |
+      QMORTON_LUT[(ti >> 24) & 0xff] << 48 | QMORTON_LUT[(tj >> 24) & 0xff] << 49 ;
     return qm;
   }
 
@@ -159,7 +159,7 @@ public final class QuadtileUtils {
    * @return { tile_i, tile_j }
    */
   public static int[] qmortonToTileIJ(long qm) {
-    return new int[] { uninterleaveBits(qm), uninterleaveBits(qm >>> 1) };
+    return new int[] { uninterleaveBits(qm), uninterleaveBits(qm >> 1) };
   }
   /**
    * Tile I/J indices and zoom level of a tile given by its qmorton and zoom level.
@@ -169,7 +169,7 @@ public final class QuadtileUtils {
    * @return { tile_i, tile_j, zoom level }
    */
   public static int[] qmortonToTileIJ(long qm, int zl) {
-    return new int[] { uninterleaveBits(qm), uninterleaveBits(qm >>> 1), zl };
+    return new int[] { uninterleaveBits(qm), uninterleaveBits(qm >> 1), zl };
   }
 
   /**
@@ -188,7 +188,7 @@ public final class QuadtileUtils {
    */
   public static long qmortonZoomBy(long qmorton, int zldiff) {
     if (zldiff >= 0) {
-      return qmorton >>> 2*zldiff;
+      return qmorton >> 2*zldiff;
     } else {
       return qmorton << (-2*zldiff);
     }
@@ -239,8 +239,8 @@ public final class QuadtileUtils {
         long[] qm_zl = { qm_1, zl };
         return qm_zl;
       }
-      qm_1 >>>= 2;
-      qm_2 >>>= 2;
+      qm_1 >>= 2;
+      qm_2 >>= 2;
     }
     throw new RuntimeException("Quadtile Morton indexes out of range: "+qm_1+" or "+qm_2+" have more bits than I can shift.");
   }
@@ -313,7 +313,7 @@ public final class QuadtileUtils {
    */
   public static long quadordToQmorton(long quadord) {
     long shift = 62L - 2*(quadord & QUADORD_ZL_MASK);
-    return quadord >>> shift;
+    return quadord >> shift;
   }
 
   /**
@@ -337,7 +337,8 @@ public final class QuadtileUtils {
     int zl_a = (int)(qo_a & QUADORD_ZL_MASK), zl_b = (int)(qo_b & QUADORD_ZL_MASK);
     // a can't contain if b is at coarser zoom level
     if (zl_b < zl_a){ return false; }
-    long qm_b_prefix = qo_b & (QUADORD_QM_MASK << (2*(zl_b - zl_a)));
+    long qm_b_prefix = qo_b & (QUADORD_QM_MASK << (56 - 2*zl_a));
+    //  GeometryUtils.dump("%2d %2d %s %s %s %s", zl_a, zl_b, zeroPadStr(Long.toString(qm_b_prefix, 4), 31), zeroPadStr(Long.toString(qo_a, 4), 31), zeroPadStr(Long.toString(qo_b, 4),31),  zeroPadStr(Long.toString(QUADORD_QM_MASK & (QUADORD_QM_MASK << (56 - 2*zl_a)), 4), 31));
     return (qm_b_prefix == (qo_a & QUADORD_QM_MASK));
   }
 
@@ -347,14 +348,22 @@ public final class QuadtileUtils {
    *
    */
 
+  protected static String zeroPadStr(String str, int wantlen) {
+    String prefixed = "00000000000000000000000000000000".concat(str);
+    int len = prefixed.length();
+    return prefixed.substring(len - wantlen, len);
+  }
+    
+
   /**
    * Quadstr string handle (base-4 representation of the qmorton) for the given
    * qmorton and zoom level
    */
   public static String qmortonToQuadstr(long qm, int zl) {
-    String qm_base_4 = "00000000000000000000000000000000".concat(Long.toString(qm, 4));
-    int len = qm_base_4.length();
-    return qm_base_4.substring(len - zl, len);
+    // String qm_base_4 = "00000000000000000000000000000000".concat(Long.toString(qm, 4));
+    // int len = qm_base_4.length();
+    // return qm_base_4.substring(len - zl, len);
+    return zeroPadStr( Long.toString(qm, 4), zl );
   }
 
 

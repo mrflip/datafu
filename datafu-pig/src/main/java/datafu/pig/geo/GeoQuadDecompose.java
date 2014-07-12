@@ -54,6 +54,7 @@ public class GeoQuadDecompose extends SimpleEvalFunc<DataBag>
     catch (Exception err) {
       String msg = String.format("Can't %s (%s)", opName(), err.getMessage());
       GeometryUtils.fuckYouError(msg, err);
+      
       log.error(msg);
       throw new RuntimeException(msg, err);
     }
@@ -65,8 +66,10 @@ public class GeoQuadDecompose extends SimpleEvalFunc<DataBag>
     Schema result_tuple_schema = new Schema();
     try {
       String bag_name  = "quad_geoms";
-      result_tuple_schema.add(new Schema.FieldSchema("quadord",  DataType.LONG));
-      result_tuple_schema.add(new Schema.FieldSchema("fragment", DataType.CHARARRAY));
+      result_tuple_schema.add(new Schema.FieldSchema("partkey",   DataType.LONG));
+      result_tuple_schema.add(new Schema.FieldSchema("quadord",   DataType.LONG));
+      result_tuple_schema.add(new Schema.FieldSchema("fragment",  DataType.CHARARRAY));
+      result_tuple_schema.add(new Schema.FieldSchema("table_idx", DataType.INTEGER));
       //
       return new Schema(new Schema.FieldSchema(
           bag_name, result_tuple_schema, DataType.BAG));

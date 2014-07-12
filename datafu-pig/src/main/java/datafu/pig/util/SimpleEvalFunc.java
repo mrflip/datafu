@@ -29,6 +29,7 @@ import org.apache.pig.data.Tuple;
 import org.apache.pig.impl.logicalLayer.FrontendException;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
 
+import datafu.pig.geo.GeometryUtils;
 
 /**
   Uses reflection to makes writing simple wrapper Pig UDFs easier.
@@ -147,13 +148,15 @@ public abstract class SimpleEvalFunc<T> extends EvalFunc<T>
 
     if (input == null || input.size() == 0)
       return null;
-    
+    Object[] args = new Object[input.size()];
+
+    try {
+      
     // check right number of arguments
     if (input.size() != pvec.length) 
       throw new IOException(String.format("%s: got %d arguments, expected %d.", _method_signature(), input.size(), pvec.length));
 
     // pull and check argument types
-    Object[] args = new Object[input.size()];
     for (int i=0; i < pvec.length; i++) {
       Object o = input.get(i);
       try {
@@ -164,6 +167,12 @@ public abstract class SimpleEvalFunc<T> extends EvalFunc<T>
               pvec[i].getName(), o.getClass().getName()));
       }
       args[i] = o;
+    }
+    }
+    catch (Exception err) {
+      String msg = String.format("%s: got %d arguments, expected %d.", _method_signature(), input.size(), pvec.length);
+      GeometryUtils.fuckYouError(msg, err);
+      throw err;
     }
 
     try {
@@ -210,7 +219,8 @@ public abstract class SimpleEvalFunc<T> extends EvalFunc<T>
         }
       }
       catch (FrontendException fe) {
-        throw new IllegalArgumentException(String.format("%s: Problem with input schema: ", _method_signature(), inputSchema), fe);
+        String msg = String.format("%s: Problem with input schema: ", _method_signature(), inputSchema);
+        throw new IllegalArgumentException(msg, fe);
       }
     }
 

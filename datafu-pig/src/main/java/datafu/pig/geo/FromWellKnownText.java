@@ -37,7 +37,7 @@ public class FromWellKnownText extends SimpleEvalFunc<String>
     try {
       OGCGeometry geom = OGCGeometry.fromText(wkt);
       if (geom == null){
-        // GeoExceptions.Log_ArgumentsNull(LOG);
+        // log.warn(GeoExceptions.ArgumentsNull.printableMessage());
         return null;
       }
       //

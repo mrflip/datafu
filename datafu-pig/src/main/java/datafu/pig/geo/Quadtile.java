@@ -322,6 +322,8 @@ public class Quadtile implements Comparable {
   protected void addQuadGeomTuple(DataBag result_bag, Geometry es_geom) {
     Tuple  result_tup = TupleFactory.getInstance().newTuple();
     String payload = GeometryUtils.pigPayload(es_geom);
+    //
+    result_tup.append(new Long(quadord() >> 52 ));
     result_tup.append(new Long(quadord()));
     result_tup.append(payload);
     result_bag.add(result_tup);
