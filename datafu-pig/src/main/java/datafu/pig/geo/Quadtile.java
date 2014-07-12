@@ -59,7 +59,7 @@ public class Quadtile implements Comparable {
   public Quadtile(long qmorton, int zoomlvl, Projection projection) {
     this.qk      = qmorton;
     this.zl      = zoomlvl;
-    this.quadord = QuadtileUtils.qmortonZlToQuadord(qk, zl);
+    this.quadord = QuadtileUtils.qmortonToQuadord(qk, zl);
     this.proj    = projection;
   }
 

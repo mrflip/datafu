@@ -32,6 +32,9 @@ abstract public class Projection
   abstract public double[] lngLatToGridXY(double lng, double lat);
   abstract public double[] gridXYToLngLat(double grid_x, double grid_y);
 
+  abstract public double[] gridXYXYToWSEN(double min_x, double min_y, double max_x, double max_y);
+  abstract public double[] wsenToGridXYXY(double west,  double south, double east,  double north);
+
   /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    *
    * Projections
@@ -45,15 +48,22 @@ abstract public class Projection
    *
    */
   public static class Identity extends Projection {
-
     public double[] lngLatToGridXY(double lng, double lat) {
       double[] grid_xy = { lng, lat };
       return grid_xy;
     }
 
     public double[] gridXYToLngLat(double grid_x, double grid_y) {
-      double[] lat_lng = { grid_x, grid_y };
-      return lat_lng;
+      double[] lng_lat = { grid_x, grid_y };
+      return lng_lat;
+    }
+
+    public double[] gridXYXYToWSEN(double min_x, double min_y, double max_x, double max_y) {
+      return new double[] { min_x, min_y, max_x, max_y };
+    }
+
+    public double[] wsenToGridXYXY(double west,  double south, double east,  double north) {
+      return new double[] { west, south, east, north };
     }
   }
 
@@ -71,13 +81,27 @@ abstract public class Projection
     }
 
     public double[] lngLatToGridXY(double lng, double lat) {
-      double[] grid_xy = { lng / scale, lat / scale };
+      // double[] grid_xy = { lng / scale, 1 - (lat / scale) };
+      double[] grid_xy = { lng / scale, (lat / scale) };
       return grid_xy;
     }
 
     public double[] gridXYToLngLat(double grid_x, double grid_y) {
-      double[] lat_lng = { grid_x * scale, grid_y * scale };
-      return lat_lng;
+      // double[] lng_lat = { grid_x * scale, (1 - grid_y) * scale };
+      double[] lng_lat = { grid_x * scale, (grid_y) * scale };
+      return lng_lat;
+    }
+
+    public double[] gridXYXYToWSEN(double min_x, double min_y, double max_x, double max_y) {
+      double[] ws = gridXYToLngLat(min_x, min_y);
+      double[] en = gridXYToLngLat(max_x, max_y);
+      return new double[] { ws[0], ws[1], en[0], en[1] };
+    }
+
+    public double[] wsenToGridXYXY(double west,  double south, double east,  double north) {
+      double[] min_xy = lngLatToGridXY(west, south);
+      double[] max_xy = lngLatToGridXY(east, north);
+      return new double[] { min_xy[0], min_xy[1], max_xy[0], max_xy[1] };
     }
   }
 
@@ -98,6 +122,18 @@ abstract public class Projection
 
     public double globeCircum() {
       return globe_radius * 2.0 * Math.PI;
+    }
+
+    public double[] gridXYXYToWSEN(double min_x, double min_y, double max_x, double max_y) {
+      double[] wn = gridXYToLngLat(min_x, min_y);
+      double[] es = gridXYToLngLat(max_x, max_y);
+      return new double[] { wn[0], es[1], es[0], wn[1] };
+    }
+
+    public double[] wsenToGridXYXY(double west,  double south, double east,  double north) {
+      double[] min_xy = lngLatToGridXY(west, north);
+      double[] max_xy = lngLatToGridXY(east, south);
+      return new double[] { min_xy[0], min_xy[1], max_xy[0], max_xy[1] };
     }
 
     /**
@@ -153,7 +189,6 @@ abstract public class Projection
       return coords;
     }
 
-
   /**
    * Quadtiles covering the area within a given distance in meters from a point.
    *
@@ -206,13 +241,13 @@ abstract public class Projection
     // Scan over tile indexes.
     int[] tij_min = QuadtileUtils.worldToTileIJ(west,  north,  zl, proj); // (lower tj is north)
     int[] tij_max = QuadtileUtils.worldToTileIJ(east,  south,  zl, proj);
-    QuadtileUtils.addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
+    QuadtileUtils.addTilesCoveringIJRect(tiles, tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl);
     //
     // If we wrapped, also contribute the wrapped portion
     if (west_2 != 0 || east_2 != 0) {
       tij_min = QuadtileUtils.worldToTileIJ(west_2, north,  zl, proj);
       tij_max = QuadtileUtils.worldToTileIJ(east_2, south,  zl, proj);
-      QuadtileUtils.addTilesCoveringIJRect(tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl, tiles);
+      QuadtileUtils.addTilesCoveringIJRect(tiles, tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl);
     }
     //
     int[] tij_pt  = QuadtileUtils.worldToTileIJ(lng, lat, zl, proj);

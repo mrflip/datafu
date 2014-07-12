@@ -63,8 +63,6 @@ public class SpatialJoinTests extends PigTests
    * Shapes decompose to the set of quadtiles we think they do
    * Shapes pair off only when envelopes intersect
    *
-   *
-   *
    */
 
   /** At ZL=7 (128x128) tiles are 10 big. */
@@ -141,22 +139,139 @@ public class SpatialJoinTests extends PigTests
   public void zQuadtileDecomposeTest() throws Exception
   {
     DataBag qt_bag;
-
+    //
     for (int idx = 0; idx < EXAMPLE_SHAPES.length; idx++) {
-      String test_shape = EXAMPLE_SHAPES[idx];
+      OGCGeometry test_shape = OGCGeometry.fromText(EXAMPLE_SHAPES[idx]);
       //
-      qt_bag = Quadtile.decompose(
-        OGCGeometry.fromText(test_shape), 4, 7, proj_1280);
-      List<Quadtile> qt_list = quadtilesFromResultBag(qt_bag);
-
+      qt_bag = Quadtile.decompose(test_shape, 4, 7, proj_1280);
+      List<Quadtile> qt_list = quadtilesFromResultBag(qt_bag); // Collections.sort(qt_list, new Quadtile.ZorderComparator()); for (Quadtile qt: qt_list) { GeometryUtils.dump("%s %3d %3d", qt, qt.zoomedTileIJ(7)[0], qt.zoomedTileIJ(7)[1]); } ; GeometryUtils.dump("");
       //
-      Collections.sort(qt_list, new Quadtile.ZorderComparator());
-      for (Quadtile qt: qt_list) {
-        // GeometryUtils.dump("%s %3d %3d", qt, qt.zoomedTileIJ(7)[0], qt.zoomedTileIJ(7)[1]);
-      }
-      // GeometryUtils.dump("");
       assertQuadtileHandlesMatch(qt_list, EXAMPLE_LAYOUTS[idx]);
     }
+  }
+
+  /**
+     DEFINE GeoQuadDecompose datafu.pig.geo.GeoQuadDecompose();
+     DEFINE ToQuadstr        datafu.pig.geo.QuadtileHandle('quadord', 'quadstr');
+     DEFINE ToQkZl           datafu.pig.geo.QuadtileHandle('quadord', 'qmorton_zl');
+     --
+     feats     = LOAD 'input_shapes' as (feat:chararray);
+     --
+     decomp    = FOREACH feats {
+       quad_geoms = GeoQuadDecompose(feat, 4, 7);
+       GENERATE quad_geoms;
+     };
+     decomp    = FOREACH decomp {
+       -- qg_o     = ORDER quad_geoms BY quadord ASC;
+       quadstrs = FOREACH quad_geoms GENERATE FLATTEN(ToQuadstr(quadord));
+       GENERATE quadstrs;
+     };
+     --
+     DESCRIBE decomp;
+     STORE decomp INTO 'output';
+  */
+  @Multiline
+  private String quadDecompTest;
+
+  @Test
+  public void quadDecompTest() throws Exception
+  {
+    PigTest test = createPigTestFromString(quadDecompTest);
+    this.writeLinesToFile("input_shapes", EXAMPLE_SHAPES);
+    test.runScript();
+    assertOutput(test, "decomp",
+      "({(0000003),(0000012),(0000013),(0000021),(0000023),(000003),(0000102),(0000103),(0000112),(0000113),(000012),(000013),(0000201),(0000203),(000021),(0000221),(0000223),(000023),(00003),(0001002),(0001003),(0001020),(0001021),(0001022),(0001023),(0001200),(0001201),(0001202),(0001203),(0001220),(0001221),(0001222),(0001223),(0002001),(0002010),(0002011),(0002100),(0002101),(0002110),(0002111),(0003000),(0003001)})",
+      "({(00003),(00012),(00021),(00030)})",
+      "({(0000300),(0000301),(0000302),(0000303),(000031),(0000320),(0000321),(0000322),(0000323),(000033),(00012),(0001300),(0001302),(0001320),(0001322),(0002100),(0002101),(0002102),(0002103),(000211),(0002120),(0002121),(0002122),(0002123),(000213),(00030),(0003100),(0003102),(0003120),(0003122)})",
+      "({(0000300),(0000301),(0000302),(0000303),(000031),(0000320),(0000321),(0000323),(000033),(00012),(0002101),(0002110),(0002111),(0002112),(0002113),(0002130),(0002131),(0002133),(00030)})");
+  }
+
+  /**
+     DEFINE ToQkZl        datafu.pig.geo.QuadtileHandle('quadstr',     'qmorton_zl');
+     DEFINE ToQuadstr     datafu.pig.geo.QuadtileHandle('quadstr',     'quadstr');
+     DEFINE ToQuadord     datafu.pig.geo.QuadtileHandle('quadstr',     'quadord');
+     DEFINE ToTileIJZl    datafu.pig.geo.QuadtileHandle('quadstr',     'tile_ij_zl');
+     DEFINE ToGridXY      datafu.pig.geo.QuadtileHandle('quadstr',     'grid_xy');
+     DEFINE ToLngLat      datafu.pig.geo.QuadtileHandle('quadstr',     'lng_lat');
+     DEFINE ToWsen        datafu.pig.geo.QuadtileHandle('quadstr',     'wsen');
+     --
+     DEFINE FromQkZl      datafu.pig.geo.QuadtileHandle('qmorton_zl',  'quadstr');
+     DEFINE FromQuadstr   datafu.pig.geo.QuadtileHandle('quadstr',     'quadstr');
+     DEFINE FromQuadord   datafu.pig.geo.QuadtileHandle('quadord',     'quadstr');
+     DEFINE FromTileIJZl  datafu.pig.geo.QuadtileHandle('tile_ij_zl',  'quadstr');
+     DEFINE FromGridXY    datafu.pig.geo.QuadtileHandle('grid_xy',     'quadstr');
+     DEFINE FromLngLat    datafu.pig.geo.QuadtileHandle('lng_lat',     'quadstr');
+     DEFINE FromWsen      datafu.pig.geo.QuadtileHandle('wsen',        'quadstr');
+     --
+     handles = LOAD 'input' as (
+       quadstr:chararray, qmorton:long, zl:int,
+       quadord:long,
+       tile_i:int, tile_j:int, grid_x:double, grid_y:double,
+       west:double, south:double, east:double, north:double
+       );
+     --
+     conv_into = FOREACH handles {
+       quadstr = (quadstr IS NULL ? '' : quadstr);
+       GENERATE ToQuadstr(quadstr), ToQkZl(quadstr), ToQuadord(quadstr),
+         ToTileIJZl(quadstr),  ToGridXY(quadstr),  ToLngLat(quadstr),
+         ToWsen(quadstr);
+     };
+     DESCRIBE conv_into;
+     --
+     conv_from = FOREACH handles {
+       quadstr = (quadstr IS NULL ? '' : quadstr);
+       GENERATE
+         FromQuadstr(quadstr)                AS from_qs,
+         FromQkZl(qmorton, zl)               AS from_qm,
+         FromQuadord(quadord)                AS from_qo,
+         FromTileIJZl(tile_i, tile_j, zl)    AS from_tile_ij,
+         FromGridXY(grid_x, grid_y, zl)      AS from_grid_xy,
+         FromLngLat(west, south, zl)         AS from_lat_lng,
+         FromWsen(west, south, east, north)  AS from_wsen,
+         quadstr
+         ;
+     };
+     --
+     STORE conv_from INTO 'output';
+  */
+  @Multiline
+  private String quadHandleTest;
+
+  @Test
+  public void quadHandleTest() throws Exception
+  {
+    PigTest test = createPigTestFromString(quadHandleTest);
+    this.writeLinesToFile("input",
+      // qs    qm zl        quadord          ti tj   grid_x grid_y     west  south    east  north
+      ",        0, 0,                    0,   0, 0,  0.0,   0.0,        0.0,   0.0, 1280.0,1280.0".replaceAll(", *","\t"),
+      "0,       0, 1,                    1,   0, 0,  0.0,   0.0,        0.0,   0.0,  639.9, 639.9".replaceAll(", *","\t"),
+      "3,       3, 1,  3458764513820540929,   1, 1,  0.5,   0.5,      640.0, 640.0, 1280.0,1280.0".replaceAll(", *","\t"),
+      "0000,    0, 4,                    4,   0, 0,  0.0,   0.0,        0.0,   0.0,   79.9,  79.9".replaceAll(", *","\t"),
+      "3333,  255, 4,  4593671619917905924,  15,15,  0.9375,0.9375,  1200.0,1200.0, 1280.0,1280.0".replaceAll(", *","\t"),
+      "1111,   85, 4,  1531223873305968644,  15, 0,  0.9375,0.0,     1200.0,   0.0, 1280.0,  79.9".replaceAll(", *","\t"),
+      "0123012301230123012301230123, 7629627604015899,28, 488296166657017564, 89478485, 53687091,0.3333333320915699,0.19999999925494194, 426.6666650772095, 255.99999904632568, 426.66666984558105, 256.0000".replaceAll(", *","\t"),
+      "3333333333333333333333333333,72057594037927935,28,4611686018427387868,268435455,268435455,0.9999999962747097,0.9999999962747097, 1279.9999952316284,1279.9999952316284, 1280.0,             1280.0".replaceAll(", *","\t"));
+    //
+    test.runScript();
+    assertOutput(test, "conv_into",
+      "((    ),(  0,0),(                  0),( 0, 0,0),(0.0,   0.0),   (0.0,      0.0),(   0.0,   0.0,1280.0,1280.0))".replaceAll(" +",""),
+      "((   0),(  0,1),(                  1),( 0, 0,1),(0.0,   0.0),   (0.0,      0.0),(   0.0,   0.0, 640.0, 640.0))".replaceAll(" +",""),
+      "((   3),(  3,1),(3458764513820540929),( 1, 1,1),(0.5,   0.5),   (640.0,  640.0),( 640.0, 640.0,1280.0,1280.0))".replaceAll(" +",""),
+      "((0000),(  0,4),(                  4),( 0, 0,4),(0.0,   0.0),   (0.0,      0.0),(   0.0,   0.0,  80.0,  80.0))".replaceAll(" +",""),
+      "((3333),(255,4),(4593671619917905924),(15,15,4),(0.9375,0.9375),(1200.0,1200.0),(1200.0,1200.0,1280.0,1280.0))".replaceAll(" +",""),
+      "((1111),( 85,4),(1531223873305968644),(15, 0,4),(0.9375,0.0),   (1200.0,   0.0),(1200.0,   0.0,1280.0,  80.0))".replaceAll(" +",""),
+      "((0123012301230123012301230123),( 7629627604015899,28),( 488296166657017564),( 89478485, 53687091,28),(0.3333333320915699,0.19999999925494194),( 426.6666650772095, 255.99999904632568),( 426.6666650772095, 255.99999904632568,  426.66666984558105, 256.00000381469727))".replaceAll(" +",""),
+      "((3333333333333333333333333333),(72057594037927935,28),(4611686018427387868),(268435455,268435455,28),(0.9999999962747097,0.9999999962747097), (1279.9999952316284,1279.9999952316284), (1279.9999952316284,1279.9999952316284, 1280.0,              1280.0))".replaceAll(" +",""));
+    //
+    assertOutput(test, "conv_from",
+      "((),(),(),(),(),(),(),)",
+      "((0),(0),(0),(0),(0),(0),(0),0)",
+      "((3),(3),(3),(3),(3),(3),(3),3)",
+      "((0000),(0000),(0000),(0000),(0000),(0000),(0000),0000)",
+      "((3333),(3333),(3333),(3333),(3333),(3333),(3333),3333)",
+      "((1111),(1111),(1111),(1111),(1111),(1111),(1111),1111)",
+      "((0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),(0123012301230123012301230123),0123012301230123012301230123)",
+      "((3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),(3333333333333333333333333333),3333333333333333333333333333)");
   }
 
   @Test
@@ -181,83 +296,25 @@ public class SpatialJoinTests extends PigTests
   }
 
 
-  @Test
-  public void aQuadtileDecomposeTest() throws Exception
-  {
-    String test_shape = "POLYGON ((-85 20, -70 20, -70 30, -85 30, -85 20))";
-    //
-    DataBag qt_bag  = Quadtile.decompose( OGCGeometry.fromText(test_shape), 4, 8, new Projection.Mercator());
-    List<Quadtile> qt_list = quadtilesFromResultBag(qt_bag);
-    //
-    assertQuadtileHandlesMatch(qt_list,
-      // two ZL-6
-      "032023",   "032032",
-      // some ZL-7
-      "0320212",  "0320213",  "0320302",  "0320303",  "0320312",  "0320330",  "0320332",
-      // and ZL-8 all around the edges
-      "03202013", "03202031", "03202033", "03202102", "03202103", "03202112", "03202113",
-      "03202211", "03202213", "03202231", "03202233", "03203002", "03203003", "03203012",
-      "03203013", "03203102", "03203103", "03203112", "03203130", "03203132", "03203310",
-      "03203312", "03203330", "03203332", "03220011", "03220013", "03220100", "03220101",
-      "03220102", "03220103", "03220110", "03220111", "03220112", "03220113", "03221000",
-      "03221001", "03221002", "03221003", "03221010", "03221011", "03221012", "03221013",
-      "03221100", "03221101", "03221102", "03221103", "03221110", "03221112");
-  }
-
-
-  //  /**
-  //    DEFINE GeoJoin datafu.pig.geo.GeoJoin();
-  //    DEFINE GeoQuadDecompose datafu.pig.geo.GeoQuadDecompose();
-  //    feats_a   = LOAD 'input_shapes' as (feat:chararray);
-  //    feats_b   = LOAD 'input_points' as (feat:chararray);
-  //    all_feats = COGROUP feats_a ALL, feats_b ALL;
-  //    --
-  //    joined = FOREACH all_feats {
-  //      GENERATE FLATTEN( GeoQuadDecompose(feats_a, feats_b) );
-  //
-  //    feats_a   = LOAD 'input_shapes' as (feat:chararray);
-  //    feats_b   = LOAD 'input_points' as (feat:chararray);
-  //    all_feats = COGROUP feats_a ALL, feats_b ALL;
-  //    --
-  //    joined = FOREACH all_feats {
-  //      GENERATE FLATTEN( QuadDecomposer(feats_a, feats_b) );
-  //    };
-  //    STORE joined INTO 'output';
-  //   */
-  //  @Multiline
-  //  private String quadDecompTest;
-  //
-  //  @Test
-  //  public void geoJoinTest() throws Exception
-  //  {
-  //    PigTest test = createPigTestFromString(quadDecompTest);
-  //    this.writeLinesToFile("input_shapes", EXAMPLE_SHAPES);
-  //    this.writeLinesToFile("input_points", EXAMPLE_POINTS);
-  //    test.runScript();
-  //    assertOutput(test, "joined",
-  //      "(POLYGON ((-84.3 24, -66.4 24, -66.4 48.8, -84.3 48.8, -84.3 24)))");
-  //  }
-
-
   /**
-    DEFINE GeoQuadDecompose datafu.pig.geo.GeoQuadDecompose();
-    feats_a   = LOAD 'input_shapes' as (feat:chararray);
-    feats_b   = LOAD 'input_points' as (feat:chararray);
-    all_feats = COGROUP feats_a ALL, feats_b ALL;
-    --
-    joined = FOREACH all_feats {
-      GENERATE
-        FLATTEN( GeoQuadDecompose(feats_a, feats_b) );
-    };
-    STORE joined INTO 'output';
+  DEFINE GeoQuadtreeJoin datafu.pig.geo.GeoQuadtreeJoin();
+  feats_a   = LOAD 'input_shapes' as (feat:chararray);
+  feats_b   = LOAD 'input_points' as (feat:chararray);
+  all_feats = COGROUP feats_a ALL, feats_b ALL;
+  --
+  joined = FOREACH all_feats {
+    GENERATE
+      FLATTEN( GeoQuadtreeJoin(feats_a, feats_b) );
+  };
+  STORE joined INTO 'output';
    */
   @Multiline
-  private String quadDecompTest;
+  private String geoQuadtreeJoinTest;
 
   @Test
-  public void quadDecompTest() throws Exception
+  public void geoQuadtreeJoinTest() throws Exception
   {
-    PigTest test = createPigTestFromString(quadDecompTest);
+    PigTest test = createPigTestFromString(geoQuadtreeJoinTest);
     this.writeLinesToFile("input_shapes", EXAMPLE_SHAPES);
     this.writeLinesToFile("input_points", EXAMPLE_POINTS);
     test.runScript();

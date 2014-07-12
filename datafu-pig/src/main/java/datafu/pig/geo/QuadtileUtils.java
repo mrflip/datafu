@@ -96,8 +96,8 @@ public final class QuadtileUtils {
    * Tiles are clipped to the map size, so that 1.0 and 1.1 land on the eastmost
    * or southmost tile, and 0 or -0.1 land on the westmost or northmost.
    *
-   * @param grid_x  X (horizontal) grid coordinate, from 0.0 to 1.0
-   * @param grid_y  Y (vertical) grid coordinate, from 0.0 to 1.0
+   * @param grid_x  X (horizontal) grid coordinate, from 0.0 to 1.0 left-to-right
+   * @param grid_y  Y (vertical) grid coordinate, from 0.0 to 1.0 top-to-bottom
    * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
    * @return        { tile_i, tile_j }
    */
@@ -266,7 +266,7 @@ public final class QuadtileUtils {
   /**
    * iterate over the given indices in both directions, pushing all tiles found into the list
    */
-  public static void addTilesCoveringIJRect(int ti_min, int tj_min, int ti_max, int tj_max, int zl, List<String> tiles) {
+  public static void addTilesCoveringIJRect(List<String> tiles, int ti_min, int tj_min, int ti_max, int tj_max, int zl) {
     for (int tj_q = tj_min; tj_q <= tj_max; tj_q++) {
       for (int ti_q = ti_min; ti_q <= ti_max; ti_q++) {
         String quadstr = tileIJToQuadstr(ti_q, tj_q, zl);
@@ -302,14 +302,14 @@ public final class QuadtileUtils {
    * In this scheme bits 64, 63, and 6 will always be zero. The MSB (sign bit)
    * is reserved to pull the UTF-8 trick: set it to indicate special handling.
    */
-  public static long qmortonZlToQuadord(long qm, int zl) {
+  public static long qmortonToQuadord(long qm, int zl) {
     int shift = 62 - 2*zl;
     return (qm << shift) | zl;
   }
 
   /**
    * Qmorton of given quadord key
-   * @see qmortonZlToQuadord
+   * @see qmortonToQuadord
    */
   public static long quadordToQmorton(long quadord) {
     long shift = 62L - 2*(quadord & QUADORD_ZL_MASK);
@@ -318,7 +318,7 @@ public final class QuadtileUtils {
 
   /**
    * Zoom level of given quadord key
-   * @see qmortonZlToQuadord
+   * @see qmortonToQuadord
    */
   public static int quadordToZl(long quadord) {
     return (int)(quadord & QUADORD_ZL_MASK);
@@ -435,6 +435,24 @@ public final class QuadtileUtils {
   }
 
   /**
+   *
+   * This method nudges the southeast corner towards the northeast corner by a
+   * small amount (1e-9, and only if the envelope is larger than that). Since
+   * coordinates on the boundary of a tile are interpreted as belonging to the
+   * north or west edge of a tile, this ensures that calling qmortonToWorldWSEN
+   * and wsenToQmortonZl will round-trip.
+   *
+   */
+  public static long[] wsenToQmortonZl(double west, double south, double east, double north, Projection proj) {
+    long qm_nw = worldToQmorton(west, north, MAX_ZOOM_LEVEL, proj);
+    // Cheat the southeast corner onto the tile
+    if (east  - west  > 1e-9) { east  -= 1e-9; }
+    if (north - south > 1e-9) { south += 1e-9; }
+    long qm_se = worldToQmorton(east, south, MAX_ZOOM_LEVEL, proj);
+    return ancestorOf(qm_nw, qm_se, MAX_ZOOM_LEVEL);
+  }
+
+  /**
    * Longitude/latitude WGS-84 coordinates (in degrees) of the top left (NW)
    * corner of the given tile in the popular tileserver Mercator projection.
    *
@@ -453,6 +471,24 @@ public final class QuadtileUtils {
     return proj.gridXYToLngLat(grid_xy[0], grid_xy[1]);
   }
 
+  /**
+   * WGS84 coordinates for tile's west, south, east, and north extents in the
+   * popular tileserver Mercator projection. That is:
+   *
+   *   minimum longitude, minimum latitude, maximum longitude, maximum latitude
+   *
+   * @param tile_i  I index of tile
+   * @param tile_j  J index of tile
+   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
+   * @return        [west, south, east, north]
+   */
+  public static double[] tileIJToWorldWSEN(int tile_i, int tile_j, int zl, Projection proj) {
+    double[] min_xy = tileIJToGridXY(tile_i,   tile_j,   zl);
+    double[] max_xy = tileIJToGridXY(tile_i+1, tile_j+1, zl);
+    //
+    // // [min_x, min_y, max_x, max_y] -> [west south east north]​
+    return proj.gridXYXYToWSEN(min_xy[0], min_xy[1], max_xy[0], max_xy[1]);
+  }
 
   /**
    * Qmorton handle of the tile containing that point at the given zoom level in
@@ -483,24 +519,6 @@ public final class QuadtileUtils {
   }
 
   /**
-   *
-   * This method nudges the southeast corner towards the northeast corner by a
-   * small amount (1e-9, and only if the envelope is larger than that). Since
-   * coordinates on the boundary of a tile are interpreted as belonging to the
-   * north or west edge of a tile, this ensures that calling qmortonToWorldWSEN
-   * and wsenToQmortonZl will round-trip.
-   *
-   */
-  public static long[] wsenToQmortonZl(double west, double south, double east, double north, Projection proj) {
-    long qm_nw = worldToQmorton(west, north, MAX_ZOOM_LEVEL, proj);
-    // Cheat the southeast corner onto the tile
-    if (east  - west  > 1e-9) { east  -= 1e-9; }
-    if (north - south > 1e-9) { south += 1e-9; }
-    long qm_se = worldToQmorton(east, south, MAX_ZOOM_LEVEL, proj);
-    return ancestorOf(qm_nw, qm_se, MAX_ZOOM_LEVEL);
-  }
-
-  /**
    * WGS84 coordinates for tile's west, south, east, and north extents in the
    * popular tileserver Mercator projection. That is:
    *
@@ -513,25 +531,6 @@ public final class QuadtileUtils {
   public static double[] qmortonToWorldWSEN(long qmorton, int zl, Projection proj) {
     int[] tile_ij = qmortonToTileIJ(qmorton);
     return tileIJToWorldWSEN(tile_ij[0], tile_ij[1], zl, proj);
-  }
-
-  /**
-   * WGS84 coordinates for tile's west, south, east, and north extents in the
-   * popular tileserver Mercator projection. That is:
-   *
-   *   minimum longitude, minimum latitude, maximum longitude, maximum latitude
-   *
-   * @param tile_i  I index of tile
-   * @param tile_j  J index of tile
-   * @param zl      zoom level, from 1 (lowest detail) to 28 (highest detail)
-   * @return        [west, south, east, north]
-   */
-  public static double[] tileIJToWorldWSEN(int tile_i, int tile_j, int zl, Projection proj) {
-    double[] nw_corner = tileIJToWorld(tile_i,   tile_j,   zl, proj);
-    double[] se_corner = tileIJToWorld(tile_i+1, tile_j+1, zl, proj);
-    //
-    // [west south east north]​ -- [min_x, min_y, max_x, max_y]
-    return new double[] { nw_corner[0], se_corner[1], se_corner[0], nw_corner[1] };
   }
 
   /**
