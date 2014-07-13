@@ -1,45 +1,73 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Map Viewer for Chimps</title>
-    <meta charset="utf-8" />
-    <link rel="stylesheet" href="mapviewer/mapviewer.css" media="screen, projection" />
+    
+    <link rel="stylesheet" href="mapviewer/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="mapviewer/css/bootstrap-theme.min.css">
+    <link rel="stylesheet" href="mapviewer/mapviewer.css"         media="screen, projection" />
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
   </head>
   
   <body>
-    <div id="map_container">
-      <form action="" id="controls">
-	<fieldset id="layers_ctls">
-	  <select id="projection_sel">
-	    <option value="mercator" selected="true">Mercator</option>
-	    <option value="equirectangular"         >Equirectangular</option>
-	    <option value="eckert4"                 >Eckert4</option>
-	    <option value="orthographic"            >Orthographic</option>	  
-	  </select>
-	</fieldset>
-	<fieldset id="layers_ctls" class="bdr">
-	  <label><input type="checkbox" class="layer_sel" value="world_land" checked="true" name="layer">World Land</input></label><br/>
-	  <label><input type="checkbox" class="layer_sel" value="world_bdry" checked="true" name="layer">World Borders</input></label><br/>
-	  <label><input type="checkbox" class="layer_sel" value="graticule"  checked="true" name="layer">Gridlines</input></label><br/>
-	</fieldset>
-	<fieldset id="panzoom_ctls">
-	  
-	<fieldset>
-	
-      </form>
-      <div id="map">
+    <div class="container-fluid">
+      <div class="row">
+        <form id="controls" class="col-md-2" action="" role="form">
+	  <label>Layers</label>
+          <div id="layers_ctls" class="bdr form-group">
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="world_land" checked="true" name="layer">World Land</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="world_bdry" checked="true" name="layer">World Borders</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="graticule"  checked="true" name="layer">Gridlines</input></label></div>
+          </div>
+          <fieldset id="panzoom_ctls" class="form-group">
+            <label for="lng_ctl"   >longitude:</label> <input type="text" id="lng_ctl"   class=""></input>
+            <label for="lat_ctl"   >latitude:</label>  <input type="text" id="lat_ctl"   class=""></input>
+            <label for="scale_ctl" >scale:</label>     <input type="text" id="scale_ctl" class=""></input>
+            <label for="zl_ctl"    >zoomlvl:</label>   <input type="text" id="zl_ctl"    class=""></input>
+          </fieldset>
+          <fieldset id="projection_ctls" class="form-group">
+            <label for="projection_ctl">Projection:</label>
+            <select id="projection_ctl" class="form-control">
+              <option value="mercator"                 >Mercator</option>
+              <option value="equirectangular"          >Equirectangular</option>
+              <option value="gall_peters"              >Gall-Peters</option>
+              <option value="eckert4"  selected="true" >Eckert4</option>
+              <option value="orthographic"             >Orthographic</option>      
+              <option value="gilbert"                  >Gilbert</option>      
+            </select>
+          </fieldset>
+	  <div id="location"></div>
+        </form>
+
+        <div class="col-md-10 main">
+	  <div id="map"></div>
+        </div>
       </div>
     </div>
-    <div id="placeinfo"    class="jsondump"></div>
-    <div id="voronoi-dump" class="jsondump"></div>
-    <div id="places-dump"  class="jsondump"></div>
+    <!-- <div id="placeinfo"    class="jsondump row"></div> -->
+    <!-- <div id="voronoi-dump" class="jsondump row"></div> -->
+    <!-- <div id="places-dump"  class="jsondump row"></div> -->
+    
+    <script src="mapviewer/js/jquery.min.js"></script>
+    <script src="mapviewer/js/bootstrap.min.js"></script>
+    <script src="mapviewer/js/d3.v3.min.js"></script>
+    <script src="mapviewer/js/d3.geo.projection.min.js"></script>
+    <script src="mapviewer/js/queue.v1.min.js"></script>
+    <script src="mapviewer/js/topojson.v1.min.js"></script>
+    <script src="mapviewer/js/d3.quadtiles.js"></script>
 
-    <script src="mapviewer/d3.v3.min.js"></script>
-    <script src="mapviewer/d3.geo.projection.min.js"></script>
-    <script src="mapviewer/queue.v1.min.js"></script>
-    <script src="mapviewer/topojson.v1.min.js"></script>
-    <script src="mapviewer/d3.quadtiles.js"></script>
+    <script src="mapviewer/js/coffee-script.js"></script>
+    
     <script src="mapviewer/mapviewer.js"></script>
+    <script src="mapviewer/mapviewer.coffee" type="text/coffeescript"></script>
   </body>
 </html>

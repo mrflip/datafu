@@ -1,45 +1,48 @@
 #map {
-  width:      960px;
-  height:     600px;
-  float:      left;
   background-color: #fcfcff;
 }
 #controls {
-  width:     200px;
-  float:      left;
+  padding:    15px 5px 0px 10px;
 }
-#controls select {
-  width:     180px;
-}
+#panzoom_ctls label { float: left;  clear: left; }
+#panzoom_ctls input { float: right; clear: right; width: 60px; }
+
 fieldset     { border: 1px none #fff;  padding: 5px; }
 fieldset.bdr { border: 1px solid #ddd; padding: 4px; }
 
+.background {
+  fill:                 #e9f3ff;
+}
+
 .land {
-  fill:		    	 #ccc;
+  fill:		    	#bbb;
 }
 
 .bdry {
-  fill:		    	 none;
-  stroke:	    	 #fff;
-  stroke-width:	    	 1.5px;
-  stroke-linejoin:  	 round;
-  stroke-linecap:   	 round;
+  fill:		    	none;
+  stroke:	    	#ddd;
+  stroke-width:	    	1.5px;
+  stroke-linejoin:  	round;
+  stroke-linecap:   	round;
 }
 
 .graticule {
-  fill:		    	 none;
-  stroke:	    	 #aac;
-  stroke-opacity:   	 0.5;
-  stroke-width:	    	 0.5px;
+  fill:		    	none;
+  stroke:	    	#aac;
+  stroke-opacity:   	0.5;
+  stroke-width:	    	0.5px;
+}
+
+.outline {
+  stroke-width: 	2px;
+  stroke:               #339; 
+  fill:                 none;
 }
 
 
 /* path { */
 /*   stroke: #333; */
 /*   fill:   none; */
-/* } */
-/* .outline { */
-/*   stroke-width: 	2px; */
 /* } */
 /* .tile.highlight { */
 /*   fill: 	   	#faa; */
