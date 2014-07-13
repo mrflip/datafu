@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Map Viewer for Chimps</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="mapviewer/mapviewer.css" media="screen, projection" />
+  </head>
+  
+  <body>
+    <div id="map_container">
+      <form action="" id="controls">
+	<fieldset id="layers_ctls">
+	  <select id="projection_sel">
+	    <option value="mercator" selected="true">Mercator</option>
+	    <option value="equirectangular"         >Equirectangular</option>
+	    <option value="eckert4"                 >Eckert4</option>
+	    <option value="orthographic"            >Orthographic</option>	  
+	  </select>
+	</fieldset>
+	<fieldset id="layers_ctls" class="bdr">
+	  <label><input type="checkbox" class="layer_sel" value="world_land" checked="true" name="layer">World Land</input></label><br/>
+	  <label><input type="checkbox" class="layer_sel" value="world_bdry" checked="true" name="layer">World Borders</input></label><br/>
+	  <label><input type="checkbox" class="layer_sel" value="graticule"  checked="true" name="layer">Gridlines</input></label><br/>
+	</fieldset>
+	<fieldset id="panzoom_ctls">
+	  
+	<fieldset>
+	
+      </form>
+      <div id="map">
+      </div>
+    </div>
+    <div id="placeinfo"    class="jsondump"></div>
+    <div id="voronoi-dump" class="jsondump"></div>
+    <div id="places-dump"  class="jsondump"></div>
+
+    <script src="mapviewer/d3.v3.min.js"></script>
+    <script src="mapviewer/d3.geo.projection.min.js"></script>
+    <script src="mapviewer/queue.v1.min.js"></script>
+    <script src="mapviewer/topojson.v1.min.js"></script>
+    <script src="mapviewer/d3.quadtiles.js"></script>
+    <script src="mapviewer/mapviewer.js"></script>
+  </body>
+</html>

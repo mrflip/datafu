@@ -27,3 +27,4 @@ datafu-pig/docs
 datafu-pig/queries
 datafu-pig/query
 examples/geography/*.json
+examples/old
