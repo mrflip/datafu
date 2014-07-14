@@ -1,8 +1,11 @@
+
 #map {
   background-color: #fcfcff;
+  /* pointer-events:   	 all; */
 }
 #controls {
   padding:    15px 5px 0px 10px;
+  /* pointer-events:   	 all; */
 }
 #panzoom_ctls label { float: left;  clear: left; }
 #panzoom_ctls input { float: right; clear: right; width: 60px; }
@@ -12,10 +15,12 @@ fieldset.bdr { border: 1px solid #ddd; padding: 4px; }
 
 .background {
   fill:                 #e9f3ff;
+  stroke:	    	#aaa;
 }
 
 .land {
   fill:		    	#bbb;
+  stroke:	    	#ddd;
 }
 
 .bdry {
@@ -28,7 +33,7 @@ fieldset.bdr { border: 1px solid #ddd; padding: 4px; }
 
 .graticule {
   fill:		    	none;
-  stroke:	    	#aac;
+  stroke:	    	#aaa;
   stroke-opacity:   	0.5;
   stroke-width:	    	0.5px;
 }
