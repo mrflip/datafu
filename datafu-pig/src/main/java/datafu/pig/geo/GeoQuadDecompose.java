@@ -43,7 +43,8 @@ import datafu.pig.geo.Projection;
 
 public class GeoQuadDecompose extends SimpleEvalFunc<DataBag>
 {
-  public final static Projection.Linear proj_1280 = new Projection.Linear(1280);
+  // public final static Projection.Linear proj_1280 = new Projection.Linear(1280);
+  public final static Projection proj_1280 = new Projection.Mercator();
 
   public DataBag call(String payload, Integer coarse_zl, Integer fine_zl) {
     try {

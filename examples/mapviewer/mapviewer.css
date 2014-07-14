@@ -9,6 +9,7 @@
 }
 #panzoom_ctls label { float: left;  clear: left; }
 #panzoom_ctls input { float: right; clear: right; width: 60px; }
+#reset_ctl { width: 100%; margin-top: 8px; } 
 
 fieldset     { border: 1px none #fff;  padding: 5px; }
 fieldset.bdr { border: 1px solid #ddd; padding: 4px; }
@@ -40,7 +41,7 @@ fieldset.bdr { border: 1px solid #ddd; padding: 4px; }
 
 .outline {
   stroke-width: 	2px;
-  stroke:               #339; 
+  stroke:               #339;
   fill:                 none;
 }
 
@@ -53,16 +54,26 @@ fieldset.bdr { border: 1px solid #ddd; padding: 4px; }
 /*   fill: 	   	#faa; */
 /*   fill-opacity: 	0.2; */
 /* } */
-/* .tile { */
-/*   stroke: 		#229; */
-/*   stroke-width: 	3px; */
-/*   pointer-events:   	visibleStroke; */
-/*   stroke-opacity:       0.1; */
-/* } */
-/* .tile:hover { */
-/*   fill: #afa; */
-/*   fill-opacity: 	0.2; */
-/* } */
+
+.tile {
+  fill:                 none;
+  stroke: 		#229;
+  stroke-width: 	0.5px;
+  /* pointer-events:   	visibleStroke; */
+  /* stroke-opacity:       0.1; */
+}
+.tile:hover {
+  fill:                 #afa;
+  fill-opacity: 	0.5;
+}
+
+.regn {
+  fill:                 none;
+  stroke: 		#922;
+  stroke-width: 	1px;
+}
+
+
 /* .tile text { */
 /*   font-family: 		sans-serif; */
 /*   font-size:   40%; */

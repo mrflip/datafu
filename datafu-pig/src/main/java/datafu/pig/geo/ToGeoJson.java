@@ -30,7 +30,7 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 
 public class ToGeoJson extends SimpleEvalFunc<String>
 {
-  public String call(String payload)  {
+  public String call(String payload) {
     try {
       OGCGeometry geom = GeometryUtils.payloadToGeom(payload);
       if (geom == null){ return null; }

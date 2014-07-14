@@ -23,8 +23,10 @@
         <form id="controls" class="col-md-2" action="" role="form">
 	  <label>Layers</label>
           <div id="layers_ctls" class="bdr form-group">
-            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="world_land" checked="true" name="layer">World Land</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="regions"    checked="true" name="layer">Regions</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="quads"      checked="true" name="layer">Tiles for Regions</input></label></div>
             <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="world_bdry" checked="true" name="layer">World Borders</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="world_land" checked="true" name="layer">World Land</input></label></div>
             <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="graticule"  checked="true" name="layer">Gridlines</input></label></div>
           </div>
           <fieldset id="panzoom_ctls" class="form-group">
@@ -36,12 +38,13 @@
           <fieldset id="projection_ctls" class="form-group">
             <label for="projection_ctl">Projection:</label>
             <select id="projection_ctl" class="form-control">
-              <option value="mercator"                 >Mercator</option>
+              <option value="mercator" >Mercator</option>
               <option value="equirectangular"          >Equirectangular</option>
               <option value="gall_peters"              >Gall-Peters</option>
-              <option value="eckert4"  selected="true" >Eckert4</option>
-              <option value="orthographic"             >Orthographic</option>      
+              <option value="eckert4"		       >Eckert4</option>
+              <option value="orthographic"  selected="true" >Orthographic</option>      
             </select>
+	    <button id="reset_ctl" type="button" class="btn btn-default">Reset Display</button>
           </fieldset>
 	  <div id="location"></div>
         </form>
@@ -51,7 +54,7 @@
         </div>
       </div>
     </div>
-    <!-- <div id="placeinfo"    class="jsondump row"></div> -->
+    <div id="placeinfo"    class="jsondump row"></div>
     <!-- <div id="voronoi-dump" class="jsondump row"></div> -->
     <!-- <div id="places-dump"  class="jsondump row"></div> -->
     

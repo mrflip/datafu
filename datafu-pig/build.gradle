@@ -200,6 +200,7 @@ dependencies {
   autojarred "org.apache.opennlp:opennlp-uima:$openNlpVersion"
   autojarred "org.apache.opennlp:opennlp-maxent:$openNlpMaxEntVersion"
 
+  autojarred( "de.grundid.opendatalab:geojson-jackson:$geojsonJacksonVersion" )
   autojarred( "com.esri.geometry:esri-geometry-api:$esriGeoApiVersion" ){
     changing=true
   }
