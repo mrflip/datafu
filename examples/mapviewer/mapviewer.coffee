@@ -63,14 +63,17 @@ class Layers
     @path_objs.attr("d", @path)
 
   redraw: ()->
-    # console.log( "redraw", @translate[0], @translate[1],
-    #   @projection.translate()[0], @projection.translate()[1],
-    #   @scale_factor, @scale, @projection.scale(), width, height )
+    console.log( "redraw", @translate[0], @translate[1],
+      @projection.translate()[0], @projection.translate()[1],
+      @scale_factor, @scale, @projection.scale(), width, height )
     if (@proj_name == "orthographic")
-      @projection.rotate([@λ(@translate[0]), @φ(@translate[1])])
+      @projection.rotate([@λ(@translate[0]), @φ(@translate[1])]).scale(@scale * @scale_factor)
     else
       @projection.translate(@translate).scale(@scale * @scale_factor)
     @path_objs?.attr("d", @path)
+    console.log( "redraw", @translate[0], @translate[1],
+      @projection.translate()[0], @projection.translate()[1],
+      @scale_factor, @scale, @projection.scale(), width, height )
     # formatOrigin(projection.rotate()));
     d3.select("#lng_ctl"  ).attr("value", Math.round(@projection.translate()[0]))
     d3.select("#lat_ctl"  ).attr("value", Math.round(@projection.translate()[1]))
@@ -93,10 +96,10 @@ class Layers
     @set_projection()
     #
     @zoom = d3.behavior.zoom()
-      .translate(@projection.translate())
-      .scale(@projection.scale())
+      .translate(@translate)
+      .scale(@scale)
       .scaleExtent([height/4.0, 8 * height])
-      .on("zoom", @whirled)
+      .on("zoom", @zoomed)
     @layers_g.call(@zoom)
     controls.setup_interactions()
 
@@ -114,15 +117,14 @@ class Layers
         @scale_factor = 1.6
         @projection   = d3.geo.eckert4().precision(.1)
       when "orthographic"
-        @scale_factor = 3.0
-        @projection   = d3.geo.orthographic().clipAngle(90).precision(.1)
+        @scale_factor = 2.5
+        @projection   = d3.geo.orthographic().clipAngle(90).precision(.1).center([0,5])
+        @translate    = [width/2, height/2]
       else #"mercator"
         @scale_factor = 1.2
         @projection   = d3.geo.mercator().precision(0).center([0,15])
-    #
     # @projection.translate([width/2, height/2]).scale(150*@scale_factor)
     @path.projection(@projection)
-    # @path_objs?.attr("d", @path)
     @redraw()
 
 class LocationControls
@@ -145,7 +147,7 @@ class Datasets
     # Start fetching all the data
     queue()
       .defer(d3.json,    "/data/geo/atlas/topojson_atlas/world-110m.json")
-      .defer(@geo_jsnl,  "/geography/output/world-quads-jsnl/part-m-00000")
+      .defer(@geo_jsnl,  "/output/world-quads-jsnl/part-m-00000")
       .defer(@geo_jsnl,  "/data/geo/atlas/world.json")
       # .defer(d3.json,  "/data/geo/atlas/topojson_atlas/world-50m.json")
       # .defer(d3.json,  "/data/geo/atlas/topojson_atlas/us.json")
