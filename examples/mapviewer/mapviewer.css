@@ -1,6 +1,6 @@
-#map {
+#map > svg {
   background-color: #fcfcff;
-  border: 1px solid #eee;
+  border:           1px solid #eee;
   /* pointer-events:   	 all; */
 }
 #controls {
@@ -13,11 +13,6 @@
 
 fieldset     { border: 1px none #fff;  padding: 5px; }
 fieldset.bdr { border: 1px solid #ddd; padding: 4px; }
-
-.background {
-  fill:                 #e9f3ff;
-  stroke:	    	#aaa;
-}
 
 .land {
   fill:		    	#bbb;
@@ -38,12 +33,20 @@ fieldset.bdr { border: 1px solid #ddd; padding: 4px; }
   stroke-opacity:   	0.5;
   stroke-width:	    	0.5px;
 }
-.tropic {
-  stroke: 	        #66e;
+
+.background {
+  fill:                 #e9f3ff;
+  stroke:	    	#aaa;
+  fill-opacity:         0.9
+}
+
+.tropic, .meridian {
+  stroke: 	        #369;
   stroke-width: 	1.5px;
   stroke-opacity:   	0.8;
   fill:                 none;
 }
+.meridian { stroke:     #386; }
 .tile {
   stroke: 	        #e66;
   stroke-width: 	1.0px;

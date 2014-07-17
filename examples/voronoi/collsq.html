@@ -20,30 +20,30 @@
   <body>
     <div class="container-fluid">
       
-      <!-- <div class="row"> -->
-      <!-- 	<h1>Square Collignon Projection</h1> -->
-      <!-- </div> -->
+      <div class="row">
+      	<h1>Square Collignon Projection</h1>
+      </div>
 
       <div class="row">
         <form id="controls" class="col-md-2" action="" role="form">
 	  <label>Layers</label>
           <div id="layer_toggs" class="bdr form-group">
-            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="regions_togg"    value="regions"    name="layer" checked="true" >Regions</input></label></div>
-            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="quads_togg"      value="quads"      name="layer"                >Tiles for Regions</input></label></div>
-            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="world_bdry_togg" value="world_bdry" name="layer" 	       >World Borders</input></label></div>	
-            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="world_land_togg" value="world_land" name="layer" checked="true" >World Land</input></label></div>	
-            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="tiles_togg"      value="tiles"      name="layer" 	       >Quad Tiles</input></label></div>	
-            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="graticule_togg"  value="graticule"  name="layer" checked="true" >Gridlines</input></label></div>
+            <div class="checkbox"><label><input id="regions_togg"    type="checkbox" class="layer_togg" checked="true" >Regions</input></label></div>
+            <div class="checkbox"><label><input id="quads_togg"      type="checkbox" class="layer_togg"                >Tiles for Regions</input></label></div>
+            <div class="checkbox"><label><input id="world_bdry_togg" type="checkbox" class="layer_togg" 	       >World Borders</input></label></div>	
+            <div class="checkbox"><label><input id="world_land_togg" type="checkbox" class="layer_togg" checked="true" >World Land</input></label></div>	
+            <div class="checkbox"><label><input id="tiles_togg"      type="checkbox" class="layer_togg" 	       >Quad Tiles</input></label></div>	
+            <div class="checkbox"><label><input id="griddle_togg"    type="checkbox" class="layer_togg" checked="true" >Projected Lines</input></label></div>
+            <div class="checkbox"><label><input id="graticule_togg"  type="checkbox" class="layer_togg" checked="true" >Gridlines</input></label></div>
           </div>
 	  
-	  <input type="range" id="nlobes_ctl" step="1"   min="1"  max="24" value="4"   />
-	  <p  class="form-control-static"> H = <output id="nlobes-output">4</output></p>
 	  <input type="range" id="cutpar_ctl"  step="1"   min="40" max="65" value="53"  />
-	  <p  class="form-control-static"> Cutover Parallel = <output id="cutpar-output">53</output></p>  
+	  <p  class="form-control-static"> Cutover Parallel = <output id="cutpar_out">53</output></p>  
 	  <input type="range" id="lampar_ctl"  step="5"   min="0"  max="50" value="0"   />
-	  <p  class="form-control-static"> Lambert Parallel = <output id="lampar-output">0</output></p>  
+	  <p  class="form-control-static"> Lambert Parallel = <output id="lampar_out">0</output></p>  
 	  <input type="range" id="cenmer_ctl"  step="2.5" min="0"  max="50" value="0"/>
-	  <p  class="form-control-static"> Central Meridian = <output id="cenmer-output">22.5</output></p>  
+	  <p  class="form-control-static"> Central Meridian = <output id="cenmer_out">22.5</output></p>  
+	  <p  class="form-control-static">lng, lat:<span id="ptr_lnglat"></span></p>
         </form>
 	
         <div class="col-md-10 main">
@@ -72,7 +72,8 @@
     <script src="/mapviewer/js/topojson.min.js"></script>
 
     <script src="/mapviewer/js/coffee-script.js"></script>
-    <script src="/mapviewer/dom_controls.coffee" type="text/coffeescript"></script>
-    <script src="./collsq.coffee" type="text/coffeescript"></script>
+    <script type="text/coffeescript" src="/mapviewer/dom_controls.coffee"></script>
+    <script type="text/coffeescript" src="/mapviewer/map4c-map.coffee"    ></script>
+    <script type="text/coffeescript" src="./collsq.coffee"></script>
   </body>
 </html>
