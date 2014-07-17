@@ -35,6 +35,30 @@ abstract public class Projection
   abstract public double[] gridXYXYToWSEN(double min_x, double min_y, double max_x, double max_y);
   abstract public double[] wsenToGridXYXY(double west,  double south, double east,  double north);
 
+  public enum ProjectionType {
+    IDENTITY,
+    LINEAR_1280,
+    EQUIRECTANGULAR,
+    MERCATOR,
+    COOL_HAT,
+    POLAR_COLLIGNON,
+  }
+
+  public static Projection getProjection(String proj_name, String arg) {
+    ProjectionType proj_type = ProjectionType.valueOf(proj_name.toUpperCase());
+
+    switch (proj_type){
+    case IDENTITY:        return new Projection.Identity(arg);
+    case LINEAR_1280:     return new Projection.Linear(arg);
+    case EQUIRECTANGULAR: return new Projection.Equirectangular(arg);
+    case MERCATOR:        return new Projection.Mercator(arg);
+    case POLAR_COLLIGNON: return new Projection.PolarCollignon(arg);
+    case COOL_HAT:        return new Projection.CoolHat(arg);
+    default:
+      throw new RuntimeException("Can't instantiate projection type '"+proj_name+"'");
+    }
+  }
+
   /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    *
    * Projections
@@ -48,6 +72,8 @@ abstract public class Projection
    *
    */
   public static class Identity extends Projection {
+    public Identity(String arg){ }
+
     public double[] lngLatToGridXY(double lng, double lat) {
       double[] grid_xy = { lng, lat };
       return grid_xy;
@@ -80,6 +106,10 @@ abstract public class Projection
       this.scale = sc;
     }
 
+    public Linear(String sc) {
+      this(sc.equals("") ? 1280 : Double.parseDouble(sc));
+    }
+
     public double[] lngLatToGridXY(double lng, double lat) {
       // double[] grid_xy = { lng / scale, 1 - (lat / scale) };
       double[] grid_xy = { lng / scale, (lat / scale) };
@@ -106,6 +136,12 @@ abstract public class Projection
   }
 
   abstract public static class GlobeProjection extends Projection {
+    public static final double   DEFAULT_MIN_LNG      =    -180.0;
+    public static final double   DEFAULT_MAX_LNG      =     180.0;
+    public static final double   DEFAULT_MIN_LAT      =     -90.0;
+    public static final double   DEFAULT_MAX_LAT      =      90.0;
+    public static final double   DEFAULT_GLOBE_RADIUS = 6378137.0;
+
     public final double   min_lng;
     public final double   max_lng;
     public final double   min_lat;
@@ -118,6 +154,10 @@ abstract public class Projection
       this.max_lng      = max_lng;
       this.max_lat      = max_lat;
       this.globe_radius = globe_radius;
+    }
+
+    public GlobeProjection(){
+      this(DEFAULT_MIN_LNG, DEFAULT_MIN_LAT, DEFAULT_MAX_LNG, DEFAULT_MAX_LAT, DEFAULT_GLOBE_RADIUS);
     }
 
     public double globeCircum() {
@@ -189,90 +229,160 @@ abstract public class Projection
       return coords;
     }
 
-  /**
-   * Quadtiles covering the area within a given distance in meters from a point.
-   *
-   * The tiles will cover a larger extent than the circle itself, as it returns
-   * all tiles that cover any part of the bounding box that covers the circle.
-   * And for large areas, this may return tiles that do not actually intersect
-   * the circle (especially for far-northerly points).
-   *
-   * However, when using this to partition big data sets, In our experience it's
-   * rarely worth filtering out the bits in the corner (consider that a circle
-   * occupies 79% of its bounding square), and even less worth fine-graining the
-   * tile size (blowing up their count) to get a closer tiling. And since <a
-   * href="http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates">
-   * distance on a sphere isn't so simple</a> -- it can be the case that all
-   * corners of a tile are not within your circle while yet parts of the tile
-   * are -- doing that filtering naively isn't a good plan.
-   *
-   * Areas that extend through the poles necessarily sweep the entire range of
-   * longitudes. If they also extend significantly southward, this will blow up
-   * their tile coverage. For a sense of this, a 600 km circle at zoom level 6
-   * on a Mercator grid requires 16 tiles when centered at London (lat 50.5), 25
-   * centered at Reykjavik (lat 62.1), 180 at Alert, Canada (82.5, the most
-   * northern occupied place) and 520 tiles at 84.8 deg.
-   *
-   * So start by using the complete but sometimes overexuberant sets this
-   * returns, and see whether you care. If you find that the northern-latitudes
-   * or lots-of-small-tiles cases are important, look to the (more expensive)
-   * functions that find a minimal tile set using Geometry objects. Also
-   * consider indexing far-northerly points using an alternate scheme.
-   *
-   * @param lng     Longitude of the point, in WGS-84 degrees
-   * @param lat     Latitude of the point, in WGS-84 degrees
-   * @param dist    Distance in meters
-   * @param zl      Zoom level of detail for the tiles
-   * @return        List of quadstr string handles for a superset of the covering tiles
-   */
-  public List<String> tilesCoveringCircle(double lng, double lat, double dist, int zl, Projection proj) {
-    List<String> tiles = new ArrayList<String>();
-    //
-    // Get the max/min latitude to index
-    double[] bbox = bboxWSENForCircle(lng, lat, dist);
-    double   west = bbox[0], south = bbox[1], east = bbox[2], north = bbox[3];
-    //
-    // See if we wrapped off the edge of the world
-    double   west_2 = 0, east_2 = 0;
-    if      (west <= -180 && east >= 180){    east  =  180;      west   = -180; } // whole world
-    else if (west < -180){ west_2 = west+360; east_2 = 180;      west   = -180; } // iterate  west+360..180 and -180..east
-    else if (east >  180){ west_2 = -180;     east_2 = east-360; east   =  180; } // iterate -180..east-360 and  west..180
-    //
-    // Scan over tile indexes.
-    int[] tij_min = QuadtileUtils.worldToTileIJ(west,  north,  zl, proj); // (lower tj is north)
-    int[] tij_max = QuadtileUtils.worldToTileIJ(east,  south,  zl, proj);
-    QuadtileUtils.addTilesCoveringIJRect(tiles, tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl);
-    //
-    // If we wrapped, also contribute the wrapped portion
-    if (west_2 != 0 || east_2 != 0) {
-      tij_min = QuadtileUtils.worldToTileIJ(west_2, north,  zl, proj);
-      tij_max = QuadtileUtils.worldToTileIJ(east_2, south,  zl, proj);
+    /**
+     * Quadtiles covering the area within a given distance in meters from a point.
+     *
+     * The tiles will cover a larger extent than the circle itself, as it returns
+     * all tiles that cover any part of the bounding box that covers the circle.
+     * And for large areas, this may return tiles that do not actually intersect
+     * the circle (especially for far-northerly points).
+     *
+     * However, when using this to partition big data sets, In our experience it's
+     * rarely worth filtering out the bits in the corner (consider that a circle
+     * occupies 79% of its bounding square), and even less worth fine-graining the
+     * tile size (blowing up their count) to get a closer tiling. And since <a
+     * href="http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates">
+     * distance on a sphere isn't so simple</a> -- it can be the case that all
+     * corners of a tile are not within your circle while yet parts of the tile
+     * are -- doing that filtering naively isn't a good plan.
+     *
+     * Areas that extend through the poles necessarily sweep the entire range of
+     * longitudes. If they also extend significantly southward, this will blow up
+     * their tile coverage. For a sense of this, a 600 km circle at zoom level 6
+     * on a Mercator grid requires 16 tiles when centered at London (lat 50.5), 25
+     * centered at Reykjavik (lat 62.1), 180 at Alert, Canada (82.5, the most
+     * northern occupied place) and 520 tiles at 84.8 deg.
+     *
+     * So start by using the complete but sometimes overexuberant sets this
+     * returns, and see whether you care. If you find that the northern-latitudes
+     * or lots-of-small-tiles cases are important, look to the (more expensive)
+     * functions that find a minimal tile set using Geometry objects. Also
+     * consider indexing far-northerly points using an alternate scheme.
+     *
+     * @param lng     Longitude of the point, in WGS-84 degrees
+     * @param lat     Latitude of the point, in WGS-84 degrees
+     * @param dist    Distance in meters
+     * @param zl      Zoom level of detail for the tiles
+     * @return        List of quadstr string handles for a superset of the covering tiles
+     */
+    public List<String> tilesCoveringCircle(double lng, double lat, double dist, int zl, Projection proj) {
+      List<String> tiles = new ArrayList<String>();
+      //
+      // Get the max/min latitude to index
+      double[] bbox = bboxWSENForCircle(lng, lat, dist);
+      double   west = bbox[0], south = bbox[1], east = bbox[2], north = bbox[3];
+      //
+      // See if we wrapped off the edge of the world
+      double   west_2 = 0, east_2 = 0;
+      if      (west <= -180 && east >= 180){    east  =  180;      west   = -180; } // whole world
+      else if (west < -180){ west_2 = west+360; east_2 = 180;      west   = -180; } // iterate  west+360..180 and -180..east
+      else if (east >  180){ west_2 = -180;     east_2 = east-360; east   =  180; } // iterate -180..east-360 and  west..180
+      //
+      // Scan over tile indexes.
+      int[] tij_min = QuadtileUtils.worldToTileIJ(west,  north,  zl, proj); // (lower tj is north)
+      int[] tij_max = QuadtileUtils.worldToTileIJ(east,  south,  zl, proj);
       QuadtileUtils.addTilesCoveringIJRect(tiles, tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl);
+      //
+      // If we wrapped, also contribute the wrapped portion
+      if (west_2 != 0 || east_2 != 0) {
+        tij_min = QuadtileUtils.worldToTileIJ(west_2, north,  zl, proj);
+        tij_max = QuadtileUtils.worldToTileIJ(east_2, south,  zl, proj);
+        QuadtileUtils.addTilesCoveringIJRect(tiles, tij_min[0], tij_min[1], tij_max[0], tij_max[1], zl);
+      }
+      //
+      int[] tij_pt  = QuadtileUtils.worldToTileIJ(lng, lat, zl, proj);
+      System.err.println(String.format("%10.5f %10.5f %2d %4d | %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f | %5d < %5d > %5d | %5d < %5d > %5d",
+          lng, lat, zl, tiles.size(),
+          west, south, east, north, west_2, east_2,
+          tij_min[0], tij_pt[0], tij_max[0],
+          tij_min[1], tij_pt[1], tij_max[1]));
+      //
+      return tiles;
     }
-    //
-    int[] tij_pt  = QuadtileUtils.worldToTileIJ(lng, lat, zl, proj);
-    System.err.println(String.format("%10.5f %10.5f %2d %4d | %10.5f %10.5f %10.5f %10.5f %10.5f %10.5f | %5d < %5d > %5d | %5d < %5d > %5d",
-        lng, lat, zl, tiles.size(),
-        west, south, east, north, west_2, east_2,
-        tij_min[0], tij_pt[0], tij_max[0],
-        tij_min[1], tij_pt[1], tij_max[1]));
-    //
-    return tiles;
-  }
 
   }
 
+  public static class PolarCollignon extends GlobeProjection {
+    protected static final double X_SC = 1 / (Math.PI * Math.sqrt(2.0));
+
+    public PolarCollignon(String arg){ }
+
+    public double[] lngLatToGridXY(double lng, double lat) {
+      assert lng <= 180 && lng >= -180 && lat <= 90 && lat >= -90;
+      //
+      double lam   = Math.toRadians(lng);
+      double phi   = Math.toRadians(lat);
+      //
+      double[] grid_xy = forward(lam, phi);
+      return   grid_xy;
+    }
+
+    public double[] forward(double lam, double phi) {
+      if (lam == Math.PI) { lam -= 1e-12; }
+      //
+      // blow up each 90-degree section to pretend it's -180..180
+      double   lam_4   = ((4 * (lam + Math.PI)) % (2*Math.PI)) - Math.PI;
+      double[] grid_xy = raw_collignon(lam_4, phi);
+      //
+      // rotate each 90-degree section on the plane
+      if      (lam < -Math.PI/2) { return new double[] {  grid_xy[0],  grid_xy[1] }; }
+      else if (lam < 0)          { return new double[] {  grid_xy[1], -grid_xy[0] }; }
+      else if (lam < Math.PI/2)  { return new double[] { -grid_xy[0], -grid_xy[1] }; }
+      else                       { return new double[] { -grid_xy[1],  grid_xy[0] }; }
+    }
+
+    public double[] raw_collignon(double lam, double phi) {
+      double grid_y = Math.sqrt( (1 - Math.sin(phi)) / 2);
+      double grid_x = grid_y * (lam / Math.PI);
+      // GeometryUtils.dump("%20.15f %20.15f %20.15f %20.15f %20.15f", lam, phi, alpha, grid_x, grid_y);
+      return new double[] { grid_x, grid_y };
+    }
+
+    public double[] raw_invert(double gx, double gy) {
+      double lam     = (gy == 0) ? 0 : (gx * Math.PI / gy);
+      double phi     = safe_asin(1 - (2*gy*gy));
+      return new double[] { lam, phi };
+    }
+
+    public double[] gridXYToLngLat(double gx, double gy) {
+      double d_lam, rot_x, rot_y;
+      // Invert the rotation
+      if      ((gy >  gx) && (gy >= -gx)) { d_lam = -0.75; rot_x =  gx; rot_y =  gy; }  // top center
+      else if ((gy <= gx) && (gy >= -gx)) { d_lam = -0.25; rot_x = -gy; rot_y =  gx; }  // right
+      else if ((gy <= gx) && (gy <  -gx)) { d_lam =  0.25; rot_x = -gx; rot_y = -gy; }  // bottom
+      else                                { d_lam =  0.75; rot_x =  gy; rot_y = -gx; }  // left
+      double[] lam_phi = raw_invert(rot_x, rot_y);
+      // GeometryUtils.dump("lng            %10.5f lat            %10.5f | %10.5f %10.5f | %10.5f", lam_phi[0], lam_phi[1], rot_x, rot_y, d_lam);
+      //
+      lam_phi[0] = lam_phi[0]/4 + d_lam*Math.PI;
+      return new double[] { Math.toDegrees(lam_phi[0]), Math.toDegrees(lam_phi[1]) };
+    }
+
+    public double safe_asin(double val) {
+      if      (val >  1) { return  Math.PI / 2;    }
+      else if (val < -1) { return -Math.PI / 2;    }
+      else               { return  Math.asin(val); }
+    }
+  }
+
+  public static class CoolHat extends Equirectangular
+  {
+    public final Projection belt_proj;
+    public final Projection cap_proj;
+    public final double     cut_lat;
+
+    public CoolHat(String arg){
+      super(arg);
+      this.belt_proj = new Equirectangular("");
+      this.cap_proj  = new PolarCollignon("");
+      this.cut_lat   = Math.asin(0.8);
+    }
+
+  }
 
   public static class Equirectangular extends GlobeProjection {
-    public static final double   DEFAULT_MIN_LNG      =    -180.0;
-    public static final double   DEFAULT_MAX_LNG      =     180.0;
-    public static final double   DEFAULT_MIN_LAT      =     -90.0;
-    public static final double   DEFAULT_MAX_LAT      =      90.0;
-    public static final double   DEFAULT_GLOBE_RADIUS = 6378137.0;
-
-    public Equirectangular(){
-      super(DEFAULT_MIN_LNG, DEFAULT_MIN_LAT, DEFAULT_MAX_LNG, DEFAULT_MAX_LAT, DEFAULT_GLOBE_RADIUS);
-    }
+    public Equirectangular(String arg){ this(); }
+    public Equirectangular(){           super(); }
 
     /**
      * Projected grid coordinates for the given longitude / latitude pair.
@@ -349,6 +459,8 @@ abstract public class Projection
     public Mercator(){
       super(DEFAULT_MIN_LNG, DEFAULT_MIN_LAT, DEFAULT_MAX_LNG, DEFAULT_MAX_LAT, DEFAULT_GLOBE_RADIUS);
     }
+
+    public Mercator(String arg){ this(); }
 
     public double[] edgeFudge() { return DEFAULT_EDGE_FUDGE; }
 

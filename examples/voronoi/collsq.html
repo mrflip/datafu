@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Map Viewer for Chimps</title>
+    
+    <link rel="stylesheet" href="/mapviewer/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/mapviewer/mapviewer.css"         media="screen, projection" />
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+	<script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+	<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+	<![endif]-->
+  </head>
+
+  <body>
+    <div class="container-fluid">
+      
+      <!-- <div class="row"> -->
+      <!-- 	<h1>Square Collignon Projection</h1> -->
+      <!-- </div> -->
+
+      <div class="row">
+        <form id="controls" class="col-md-2" action="" role="form">
+	  <label>Layers</label>
+          <div id="layer_toggs" class="bdr form-group">
+            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="regions_togg"    value="regions"    name="layer" checked="true" >Regions</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="quads_togg"      value="quads"      name="layer"                >Tiles for Regions</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="world_bdry_togg" value="world_bdry" name="layer" 	       >World Borders</input></label></div>	
+            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="world_land_togg" value="world_land" name="layer" checked="true" >World Land</input></label></div>	
+            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="tiles_togg"      value="tiles"      name="layer" 	       >Quad Tiles</input></label></div>	
+            <div class="checkbox"><label><input type="checkbox" class="layer_togg" id="graticule_togg"  value="graticule"  name="layer" checked="true" >Gridlines</input></label></div>
+          </div>
+	  
+	  <input type="range" id="nlobes_ctl" step="1"   min="1"  max="24" value="4"   />
+	  <p  class="form-control-static"> H = <output id="nlobes-output">4</output></p>
+	  <input type="range" id="cutpar_ctl"  step="1"   min="40" max="65" value="53"  />
+	  <p  class="form-control-static"> Cutover Parallel = <output id="cutpar-output">53</output></p>  
+	  <input type="range" id="lampar_ctl"  step="5"   min="0"  max="50" value="0"   />
+	  <p  class="form-control-static"> Lambert Parallel = <output id="lampar-output">0</output></p>  
+	  <input type="range" id="cenmer_ctl"  step="2.5" min="0"  max="50" value="0"/>
+	  <p  class="form-control-static"> Central Meridian = <output id="cenmer-output">22.5</output></p>  
+        </form>
+	
+        <div class="col-md-10 main">
+	  <div id="map">
+	    <svg width="800" height="800">
+	    </svg>
+	  </div>
+        </div>
+      </div>
+    </div>
+    <div id="infobox"  class="jsondump row"></div>
+
+	      <!-- <line class="outline" x1="0"   y1="0"  x2="0"   y2="100%"/> -->
+	      <!-- <line class="outline" x1="800" y1="0"  x2="800" y2="100%"/> -->
+	      <!-- <line class="outline" x1="200" y1="0"  x2="200" y2="100%"/> -->
+	      <!-- <line class="outline" x1="600" y1="0"  x2="600" y2="100%"/> -->
+	      <!-- <line class="outline" x1="5%" y1="50"  x2="95%" y2="50"/> -->
+	      <!-- <line class="outline" x1="5%" y1="200" x2="95%" y2="200"/> -->
+	      <!-- <line class="outline" x1="5%" y1="400" x2="95%" y2="400"/> -->
+	      <!-- <line class="outline" x1="5%" y1="600" x2="95%" y2="600"/> -->
+	      <!-- <line class="outline" x1="5%" y1="750" x2="95%" y2="750"/> -->
+    
+    <script src="/mapviewer/js/d3.js"></script>
+    <script src="/mapviewer/js/d3.geo.projection.js"></script>
+    <script src="/mapviewer/js/queue.v1.min.js"></script>
+    <script src="/mapviewer/js/topojson.min.js"></script>
+
+    <script src="/mapviewer/js/coffee-script.js"></script>
+    <script src="/mapviewer/dom_controls.coffee" type="text/coffeescript"></script>
+    <script src="./collsq.coffee" type="text/coffeescript"></script>
+  </body>
+</html>

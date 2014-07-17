@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<title>HEALPix Projection</title>
+<style>
+
+@import url(http://www.jasondavies.com/maps/maps.css);
+
+</style>
+</head>
+
+<body>
+<p class="breadcrumbs"><a href="http://www.jasondavies.com/">Jason Davies</a> → <a href="../">Maps</a>
+</p>
+
+<h1>HEALPix Projection</h1>
+<div id="map"></div>
+
+<p><input type="range" id="nlobes_ctl" step="1"   min="1"  max="24" value="4"   />  Number of Lobes (H) = <output id="nlobes_out">4</output></p>
+<p><input type="range" id="cutpar_ctl"  step="1"   min="40" max="65" value="53"  /> Cutover Parallel = <output id="cutpar_out">53</output></p>  
+<p><input type="range" id="lampar_ctl"  step="5"   min="0"  max="50" value="0"   /> Lambert Parallel = <output id="lampar_out">0</output></p>  
+<p><input type="range" id="cenmer_ctl"  step="2.5" min="0"  max="50" value="22.5"/> Central Meridian = <output id="cenmer_out">22.5</output></p>  
+
+<p>
+  <a href="http://healpix.jpl.nasa.gov/"><b>H</b>ierarchical <b>E</b>qual <b>A</b>rea and iso<b>L</b>atitude <b>Pix</b>elisation</a>.
+</p>
+
+<script src="/mapviewer/js/d3.min.js"></script>
+<script src="/mapviewer/js/d3.geo.projection.min.js"></script>
+<script src="./jasondavies-maps.js"></script>
+<script src="/mapviewer/js/topojson.min.js?1.0.0pre"></script>
+
+
+<script src="/mapviewer/js/coffee-script.js"></script>
+<script src="/mapviewer/dom_controls.coffee" type="text/coffeescript"></script>
+<script src="./healpix.coffee" type="text/coffeescript"></script>
+
+
+</body>
+</html>

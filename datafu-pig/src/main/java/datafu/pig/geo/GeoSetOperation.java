@@ -69,7 +69,7 @@ public class GeoSetOperation extends SimpleEvalFunc<String>
     switch (op_type){
     case INTERSECTION:
       this.operator = (CombineOperator)OperatorFactoryLocal.getInstance()
-        .getOperator(Operator.Type.Intersection);
+        .getOperator(Operator.Type.Intersection); break;
     default:
     }
   }

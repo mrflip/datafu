@@ -23,22 +23,24 @@
         <form id="controls" class="col-md-2" action="" role="form">
 	  <label>Layers</label>
           <div id="layers_ctls" class="bdr form-group">
-            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="regions"    checked="true" name="layer">Regions</input></label></div>
-            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="quads"      checked="true" name="layer">Tiles for Regions</input></label></div>
-            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="world_bdry" checked="true" name="layer">World Borders</input></label></div>
-            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="world_land" checked="true" name="layer">World Land</input></label></div>
-            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="graticule"  checked="true" name="layer">Gridlines</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="regions"    name="layer" checked="true" >Regions</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="quads"      name="layer" >Tiles for Regions</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="world_bdry" name="layer" >World Borders</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="world_land" name="layer" >World Land</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="tiles"      name="layer" >Quad Tiles</input></label></div>
+            <div class="checkbox"><label><input type="checkbox" class="layer_ctl" value="graticule"  name="layer" checked="true" >Gridlines</input></label></div>
           </div>
           <fieldset id="panzoom_ctls" class="form-group">
             <label for="lng_ctl"   >longitude:</label> <input type="text" id="lng_ctl"   class=""></input>
             <label for="lat_ctl"   >latitude:</label>  <input type="text" id="lat_ctl"   class=""></input>
             <label for="scale_ctl" >scale:</label>     <input type="text" id="scale_ctl" class=""></input>
             <label for="zl_ctl"    >zoomlvl:</label>   <input type="text" id="zl_ctl"    class=""></input>
+	    <p id="ptr_lnglat" class="form-control-static"></p>
           </fieldset>
           <fieldset id="projection_ctls" class="form-group">
             <label for="projection_ctl">Projection:</label>
             <select id="projection_ctl" class="form-control">
-              <option value="mercator" selected="true">Mercator</option>
+              <option value="mercator"         selected="true"         >Mercator</option>
               <option value="equirectangular"          >Equirectangular</option>
               <option value="gall_peters"              >Gall-Peters</option>
               <option value="eckert4"		       >Eckert4</option>
@@ -55,16 +57,12 @@
       </div>
     </div>
     <div id="placeinfo"    class="jsondump row"></div>
-    <!-- <div id="voronoi-dump" class="jsondump row"></div> -->
-    <!-- <div id="places-dump"  class="jsondump row"></div> -->
     
-    <!-- <script src="mapviewer/js/jquery.min.js"></script> -->
     <!-- <script src="mapviewer/js/bootstrap.min.js"></script> -->
     <script src="mapviewer/js/d3.js"></script>
     <script src="mapviewer/js/d3.geo.projection.min.js"></script>
     <script src="mapviewer/js/queue.v1.min.js"></script>
     <script src="mapviewer/js/topojson.min.js"></script>
-    <!-- <script src="mapviewer/js/d3.quadtiles.js"></script> -->
 
     <script src="mapviewer/js/coffee-script.js"></script>
     <script src="mapviewer/mapviewer.coffee" type="text/coffeescript"></script>
