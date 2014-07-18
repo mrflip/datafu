@@ -87,8 +87,46 @@ class CoolHat
   projection: ()->
     # @forward.invert = @invert
     proj = d3.geo.projection(@forward)
-    # @outline_projection(proj)
+    @outline_projection(proj)
     proj
+
+  outline_projection: (proj)->
+    # wrapped_stream = proj.stream
+    # foo = (pstr)=>
+    #   pstr = wrapped_stream(pstr)
+    #   pstr.sphere = ()=>
+    #     step = 45
+    #     ε = 1e-0
+    #     λ = ε - 180
+    #     pstr.polygonStart(); pstr.lineStart()
+    #     pstr.point(λ, (@cutpar-ε))
+    #     λ += step; pstr.point(λ, (@cutpar - ε))
+    #     λ += step; pstr.point(λ, (@cutpar - ε))
+    #     pstr.point(-90, (@cutpar + ε))
+    #     pstr.point(-135, (@cutpar + ε))
+    #     pstr.point(-180, (@cutpar + ε))
+    #     pstr.point(-180, (90 - ε))
+    #     pstr.point(0,    (90 - ε))
+    #     pstr.point(0,    (@cutpar + ε))
+    #     #
+    #     
+    #     pstr.point(λ, (@cutpar))
+    #     while (λ < 180)
+    #       λ += step; pstr.point(λ - ε, (@cutpar))
+    #     pstr.point(180,  (@cutpar))
+    #     pstr.point(180,  -89)
+    #     #
+    #     λ = 180 - ε
+    #     pstr.point(λ,  -89)
+    #     while (λ > -180)
+    #       λ -= step; pstr.point(λ - ε, -89)
+    #     pstr.point(-180, -89)
+    #     pstr.point(-180, (@cutpar))
+    #     pstr.lineEnd(); pstr.polygonEnd()
+    #     pstr
+    #   pstr
+    # proj.stream = foo
+    return proj
 
 class CollSqMap extends map4c.Map
   throttle_timer: null
@@ -124,34 +162,3 @@ datasets         = new map4c.Datasets(map)
 datasets.fetch()
 
 
-
-  # outline_projection: (proj)->
-  #   wrapped_stream = proj.stream
-  #   foo = (pstr)=>
-  #     pstr = wrapped_stream(pstr)
-  #     pstr.sphere = ()=>
-  #       step = 45
-  #       ε = 1e-1
-  #       λ = ε - 180
-  #       pstr.polygonStart(); pstr.lineStart()
-  #       pstr.point(λ, (@cutpar))
-  #       pstr.point(λ, (90 - ε))
-  #       λ += step; pstr.point(λ, (90 - ε))
-  #       λ += step; pstr.point(λ, (90 - ε))
-  #       pstr.point(λ, (@cutpar))
-  #       while (λ < 180)
-  #         λ += step; pstr.point(λ - ε, (@cutpar))
-  #       pstr.point(180,  (@cutpar))
-  #       pstr.point(180,  -89)
-  #       #
-  #       λ = 180 - ε
-  #       pstr.point(λ,  -89)
-  #       while (λ > -180)
-  #         λ -= step; pstr.point(λ - ε, -89)
-  #       pstr.point(-180, -89)
-  #       pstr.point(-180, (@cutpar))
-  #       pstr.lineEnd(); pstr.polygonEnd()
-  #       pstr
-  #     pstr
-  #   proj.stream = foo
-  #   return proj
