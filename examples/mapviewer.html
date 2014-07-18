@@ -39,28 +39,26 @@
             <label for="tx_ctl"   >translate x:</label> <input type="text" id="tx_ctl" class=""></input>
             <label for="ty_ctl"   >translate y:</label> <input type="text" id="ty_ctl" class=""></input>
             <label for="sc_ctl"   >scale %:</label>     <input type="text" id="sc_ctl" class=""></input>
-            <label for="zl_ctl"   >zoomlvl:</label>     <input type="text" id="zl_ctl" class=""></input>
-	    <p id="ptr_lnglat" class="form-control-static"></p>
 
 	    <!-- <input type="range" id="lng_ctl"  step="1"   min="40" max="65" value="53"  /> -->
 	    <!-- <p  class="form-control-static"> Cutover Parallel = <output id="cutpar_out">53</output></p>   -->
 	    <!-- <input type="range" id="lampar_ctl"  step="5"   min="0"  max="50" value="0"   /> -->
 	    <!-- <p  class="form-control-static"> Lambert Parallel = <output id="lampar_out">0</output></p>   -->
-	    <!-- <input type="range" id="cenmer_ctl"  step="2.5" min="0"  max="50" value="0"/> -->
-	    <!-- <p  class="form-control-static"> Central Meridian = <output id="cenmer_out">22.5</output></p>   -->
-	    <!-- <p  class="form-control-static">lng, lat:<span id="ptr_lnglat"></span></p> -->
+	    <input type="range" id="cenmer_ctl"  step="2.5" min="-30"  max="30" value="-22.50"/> 
+	    <output id="cenmer_out" class="form-control-static">Meridian = -22.5</output>
 	    
+	    <p id="ptr_lnglat" class="form-control-static">0, 0</p>
+	    <button id="reset_ctl" type="button" class="btn btn-default">Reset Display</button>
           </fieldset>
           <fieldset id="projection_ctls" class="form-group">
             <label for="projection_ctl">Projection:</label>
             <select id="projection_ctl" class="form-control">
-              <option value="mercator"         selected="true"         >Mercator</option>
+              <option value="mercator" selected="true" >Mercator</option>
               <option value="equirectangular"          >Equirectangular</option>
               <option value="gall_peters"              >Gall-Peters</option>
               <option value="eckert4"		       >Eckert4</option>
               <option value="orthographic" >Orthographic</option>      
             </select>
-	    <button id="reset_ctl" type="button" class="btn btn-default">Reset Display</button>
           </fieldset>
 	  <div id="location"></div>
         </form>
@@ -68,6 +66,10 @@
         <div class="col-md-10 main">
 	  <div id="map">
 	    <svg width="800" height="800">
+	      <g>
+		<line class="outline" x1="0%"   y1="400"  x2="100%"  y2="400"/>
+		<line class="outline" x1="400"  y1="0"    x2="400"   y2="100%"/>
+	      </g>
 	    </svg>
 	  </div>
         </div>
@@ -83,7 +85,8 @@
 
     <script src="mapviewer/js/coffee-script.js"></script>
     <script type="text/coffeescript" src="mapviewer/dom_controls.coffee"></script>
-    <script type="text/coffeescript" src="mapviewer/map4c-map.coffee"    ></script>
-    <script type="text/coffeescript" src="mapviewer/mapviewer.coffee"></script>
+    <script type="text/coffeescript" src="mapviewer/datasets.coffee"    ></script>
+    <script type="text/coffeescript" src="mapviewer/map.coffee"         ></script>
+    <script type="text/coffeescript" src="mapviewer/mapviewer.coffee"   ></script>
   </body>
 </html>

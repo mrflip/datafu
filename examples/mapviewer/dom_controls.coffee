@@ -1,134 +1,146 @@
-f = d3.format "7.2f"
+map4c = (window.map4c ?= {})
 
-class window.DomControl
+#
+# A control on the page, with optional separate display, that notifies changes
+# back to the responsible model
+# 
+class DomControl
   input:   null
   output:  null
 
   constructor: (@name, @ctlset)->
     @input  = d3.select("##{@name}_ctl")
     @output = d3.select("##{@name}_out")
-    window.foo = @input
-    console.log "DomControl", this
+    @_format = d3.identity
     @input.on("change", @update)
 
+  # with arg: set value, return this; no arg: return current value
+  # Changing value here does _not_ call {whatever}_update on owner
   value:   (val)->
     return if @input.empty()
-    if val? then @input.property("value", val) else @input.property("value")
+    if val?
+      @input.property("value", val)
+      this
+    else
+      @input.property("value")
 
-  # # update our display, set our eponymous attribute on ctlset 
-  # set_val: ()->
-  #   val = this.value()
-  #   @output?.property("value", val)
+  formatter: (fn)->
+    if fn?
+      @_format = fn
+      this
+    else
+      @_format
 
-  # update our value, then notify ctlset that we've changed
+  # notify ctlset that we've changed
   update: ()=>
-    console.log("")
-    console.log("updating", @name, @value(), this)
-    @ctlset["#{@name}_updated"]?(@value(), this)
+    val = @value()
+    @output.text(@_format(val)) unless @input.empty() || @output.empty()
+    @ctlset["#{@name}_updated"]?(val, this)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-# Manage a set of controls    
-
-# class ControlSet
-#   constructor: (@owner, @ctl_names)->
-#     this["#{ctl_name}_ctl"] = new DomControl(ctl_name, this) for ctl_name in ctl_names
-#     owner = @owner
-#     ptr_lnglat = d3.select('#ptr_lnglat')
-#     owner.layers_g.on "mousemove", (tile,idx)->
-#       lnglat = owner.projection.invert(d3.mouse(this))
-#       ptr_lnglat.text([f(lnglat[0]), f(lnglat[1])])
-
-class window.ZoomerControl
+# Handle Zooming and Scrolling    
+#
+# 
+class ZoomerControl
   zoom:       d3.behavior.zoom()
+  tr_frac:    0.65
   
   constructor: (@owner, @width, @height)->
     @tx_ctl = new DomControl('tx', this)
     @ty_ctl = new DomControl('ty', this)
     @sc_ctl = new DomControl('sc', this)
+    @reset_ctl = d3.select("#reset_ctl").on("click", @owner.reset)
     #
-    @λ_rg  = d3.scale.linear().domain([0,  @width ]).range([ -180,  180  ]);
-    @φ_rg  = d3.scale.linear().domain([0,  @height]).range([   90,  -90  ]);
-    @tx_rg = d3.scale.linear().domain([-0.15*@width, 1.15*@width ]).range([0.35*@width,  1.65*@width ]).clamp(true);
-    @ty_rg = d3.scale.linear().domain([-0.15*@height,1.15*@height]).range([0.35*@height, 1.65*@height]).clamp(true);
-    @sc_rg = d3.scale.linear().domain([16, 800    ]).range([ 0.16,    8.0]).clamp(true);
-    #
-    @tx_off = width/2; @ty_off = height/2;
+    @λ_rg  = d3.scale.linear().domain([-@width,  @width ]).range([ -180,  180  ]);
+    @φ_rg  = d3.scale.linear().domain([-@height, @height]).range([   90,  -90  ]);
+    @sc_rg = d3.scale.linear().domain([50, 800    ]).range([ 0.5,    8.0]).clamp(true);
+    @troffs = @width/2
     #
     @zoom
       .scaleExtent(@sc_rg.domain())
       .on("zoom", @zoomed)
-    @owner.layers_g.call(@zoom)
+    @owner.svg.call(@zoom)
     #
     @reset()
     # 
 
-  translate: ()-> [ @tx_rg(@tx), @ty_rg(@ty) ]
+  translate: ()-> [ @tx, @ty ]
   rotate:    ()-> [ @λ_rg(@tx),  @φ_rg(@ty) ]
 
   scale:     ()-> @sc_rg(@sc)
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   #
-  # Zoom by mouse
+  # Zoom/Scroll by mouse
+  #
 
   zoomed: ()=>
-    console.log("zoomed", this)
-    tr = d3.event.translate ; [tx, ty] = [ tr[0]-@tx_off, tr[1]-@ty_off ]
+    tr = d3.event.translate
     sc = d3.event.scale
+    tx = @coerce_tr(tr[0]-@troffs, @width)
+    ty = @coerce_tr(tr[1]-@troffs, @height)
     #    
     @set_translate [tx, ty]  if [tx, ty] != [@tx, @ty]
     @set_scale     sc        if sc       != @sc
     @owner.redraw()
 
   # Called by zoomer. Do update dom; don't trigger redraw here
-  # 
 
   set_scale: (val)->
     @sc   = +val
     @sc   = @sc_rg.invert(@scale()) # ensure it's in domain of values
-    console.log "sc set", val, @sc, this, @sc_ctl
     @sc_ctl.value(Math.round(@sc))
 
   set_translate: (val)->
-    console.log "translate set", val, this
-    [@tx, @ty] = val
-    tr = @translate()
-    [@tx, @ty] = [ @tx_rg.invert(tr[0]), @ty_rg.invert(tr[1]) ]
+    @tx = @coerce_tr(val[0], @width);
+    @ty = @coerce_tr(val[1], @height); 
     #  
     @tx_ctl.value(Math.round(@tx))
     @ty_ctl.value(Math.round(@ty))
 
+  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #
+  # Zoom/Scroll by direct numeric value
+  #
+
   # Called by the dom. Don't update dom; do trigger redraw; don't call this yourself
 
-  scale_updated: (val)->
+  sc_updated: (val)->
     @set_scale(val)
-    @zoom.scale(@sc)
+    @set_translate([@tx, @ty])
+    @update_zoom()
     @owner.redraw()
         
   tx_updated: (val)=>
-    @tx = +val ; @tx = @tx_rg.invert(@translate()[0])
-    console.log "tx_updated", @tx, @zoom.translate(), this
+    @tx = @coerce_tr(+val, @width)
     #
     @tx_ctl.value(Math.round(@tx))
     @update_zoom()
-    console.log "tx_updated", @tx, @zoom.translate(), this
     @owner.redraw()
   
   ty_updated: (val)=> 
-    @ty = +val ; @ty = @ty_rg.invert(@translate()[1])
-    console.log "ty_updated", @ty, this
+    @ty = @coerce_tr(+val, @height)
     #
     @ty_ctl.value(Math.round(@ty))
     @update_zoom()
     @owner.redraw()
 
-  update_zoom: ()->
-    @zoom.scale     @sc
-    @zoom.translate [@tx + @tx_off, @ty + @ty_off]
-
   reset: ()=>
-    @set_translate  [0, 0] # [@width/2, @height/2]
+    @set_translate  [0,0]
     @set_scale      100
     @update_zoom()
+
+  update_zoom: ()->
+    @zoom.scale     @sc
+    @zoom.translate [@tx + @troffs, @ty + @troffs]
+
+  coerce_tr: (val, dim)->
+    bound = (@tr_frac * dim * Math.sqrt(@scale()))
+    if      val < -bound then return -bound
+    else if val >  bound then return  bound
+    else                      return  val
+
+map4c.DomControl    = DomControl
+map4c.ZoomerControl = ZoomerControl

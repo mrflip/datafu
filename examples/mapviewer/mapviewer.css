@@ -1,14 +1,15 @@
 #map > svg {
   background-color: #fcfcff;
-  border:           1px solid #eee;
   /* pointer-events:   	 all; */
 }
 #controls {
   padding:    15px 5px 0px 10px;
   /* pointer-events:   	 all; */
 }
-#panzoom_ctls label, #panzoom_ctls p { float: left;  clear: left; }
-#panzoom_ctls input { float: right; clear: right; width: 60px; }
+#panzoom_ctls label, #panzoom_ctls p, #panzoom_ctls output {
+  float: left;  clear: left;
+}
+#panzoom_ctls input[type="text"] { float: right; clear: right; width: 60px; }
 #reset_ctl { width: 100%; margin-top: 8px; } 
 
 fieldset     { border: 1px none #fff;  padding: 5px; }
@@ -36,8 +37,8 @@ fieldset.bdr { border: 1px solid #ddd; padding: 4px; }
 
 .background {
   fill:                 #e9f3ff;
-  stroke:	    	#aaa;
-  fill-opacity:         0.9
+  stroke:	    	#faa;
+  fill-opacity:         0.6
 }
 
 .tropic, .meridian {
